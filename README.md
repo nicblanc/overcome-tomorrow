@@ -23,3 +23,8 @@ Let's find out !
 * https://developer.garmin.com/fit/file-types/activity/
 * https://github.com/cyberjunky/python-garminconnect
 * https://www.garmin.com/fr-FR/account/datamanagement/
+* https://www.fitfileviewer.com/
+
+## Req
+
+* https://developer.garmin.com/fit/example-projects/python/
