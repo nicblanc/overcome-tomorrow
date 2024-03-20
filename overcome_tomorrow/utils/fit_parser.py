@@ -10,6 +10,7 @@ FILTERED_SESSION_KEYS = {
     205,  # beginning potential stamina
     206,  # ending potential stamina
     207,  # min stamina
+    188,  # Primary benefit
     'avg_cadence',
     'avg_heart_rate',
     'avg_power',
