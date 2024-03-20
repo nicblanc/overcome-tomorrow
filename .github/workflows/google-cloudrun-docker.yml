@@ -6,6 +6,7 @@ on:
 
 jobs:
   deploy:
+    # Use Prod environment for secrets and vars
     environment: Prod
     # Add 'id-token' with the intended permissions for workload identity federation
     permissions:
@@ -41,7 +42,7 @@ jobs:
 
       - name: Deploy to Cloud Run
         id: deploy
-        uses: google-github-actions/deploy-cloudrun@v0
+        uses: google-github-actions/deploy-cloudrun@v2.2.0
         with:
           memory: ${{ vars.GAR_MEMORY }}
           service: ${{ vars.GCP_REPOSITORY }}/${{ vars.IMAGE_NAME }}
