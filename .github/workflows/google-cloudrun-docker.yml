@@ -45,7 +45,7 @@ jobs:
         uses: google-github-actions/deploy-cloudrun@v2.2.0
         with:
           memory: ${{ vars.GAR_MEMORY }}
-          service: ${{ vars.GCP_REPOSITORY }}/${{ vars.IMAGE_NAME }}
+          # service: ${{ vars.GCP_REPOSITORY }}/${{ vars.IMAGE_NAME }}
           region: ${{ vars.GCP_REGION }}
           # NOTE: If using a pre-built image, update the image name here
           image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${{ vars.GCP_REPOSITORY }}/${{ vars.IMAGE_NAME }}:${{ github.sha }}
