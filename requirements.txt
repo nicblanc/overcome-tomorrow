@@ -13,9 +13,8 @@ tensorflow==2.10.0; sys_platform == 'darwin' and 'ARM' not in platform_version #
 tensorflow==2.10.0; sys_platform != 'darwin' # Windows & Ubuntu Intel chips
 
 # prevent bq 3+ db-dtypes package error when running training from bq
-
-mlflow==2.1.1
-prefect==2.14.9
+# mlflow==2.1.1
+# prefect==2.14.9
 
 python-dotenv
 psycopg2-binary
