@@ -2,7 +2,7 @@ name: Build and Deploy to Cloud Run
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "master",  "feature/create-deployment-action" ]
 
 env:
   PROJECT_ID: '${{ env.GCP_PROJECT }}'
