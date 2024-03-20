@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy:
-    environment: Prod
+    # environment: Prod
     # Add 'id-token' with the intended permissions for workload identity federation
     permissions:
       contents: 'read'
@@ -28,7 +28,7 @@ jobs:
         id: docker-auth
         uses: docker/login-action@v3
         with:
-          registry: '${{ vars.GAR_LOCATION }}-docker.pkg.dev'
+          registry: '${{ vars.GCP_REGION }}-docker.pkg.dev'
           username: _json_key
           password: ${{ secrets.GCP_CREDENTIALS }}
 
