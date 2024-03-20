@@ -6,6 +6,7 @@ on:
 
 jobs:
   deploy:
+    environment: Prod
     # Add 'id-token' with the intended permissions for workload identity federation
     permissions:
       contents: 'read'
