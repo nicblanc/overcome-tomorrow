@@ -199,6 +199,7 @@ def merge_all_data() -> pd.DataFrame:
 
     final_dataset = pd.merge(sleep_fitness, aggregator,left_index=True, right_index=True, how='left')
 
+    print("✅ Datasets merged")
     return final_dataset
 
 def load_to_csv(output_path="raw_data/"):
@@ -206,5 +207,3 @@ def load_to_csv(output_path="raw_data/"):
     final_df = merge_all_data()
     final_df.to_csv(complet_path,index=True)
     print("✅ Save as csv")
-
-load_to_csv()
