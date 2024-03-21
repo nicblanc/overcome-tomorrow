@@ -186,11 +186,13 @@ def clean_fitness(path="raw_data/Fitness") -> pd.DataFrame:
 
 ############################ MERGING FUNCTIONS #################################
 
-def merge_all_data() -> pd.DataFrame:
+def merge_all_data(sleep_path="raw_data/Wellness",
+                   fitness_path="raw_data/Fitness",
+                   aggregator_path="raw_data/Aggregator") -> pd.DataFrame:
 
-    sleep_df = clean_wellness()
-    fitness_df = clean_fitness()
-    aggregator  = clean_data_aggregator()
+    sleep_df = clean_wellness(sleep_path)
+    fitness_df = clean_fitness(fitness_path)
+    aggregator  = clean_data_aggregator(aggregator_path)
 
     sleep_fitness = pd.merge(sleep_df, fitness_df, on="date", how="left")
     sleep_fitness = sleep_fitness.rename(columns={'date': 'calendarDate'})
