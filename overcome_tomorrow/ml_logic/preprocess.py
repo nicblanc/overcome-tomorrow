@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import math
 
 from sklearn.compose import ColumnTransformer, make_column_transformer
 from sklearn.pipeline import make_pipeline, Pipeline
@@ -34,6 +35,21 @@ class CyclicalFeaturesSleep(TransformerMixin, BaseEstimator):
         return self.columns
 
 
+def convert_sin_cos_to_hour(s, c):
+    angle = math.atan2(s, c)
+    angle *= 180 / math.pi
+    if angle < 0:
+        angle += 360
+
+    time = angle / 24
+    hours = int(time)
+    minutes = (time*60) % 60
+    seconds = (time*3600) % 60
+
+    return ("%d:%02d.%02d" % (hours, minutes, seconds))
+    # return angle / 24
+
+
 class CyclicalFeaturesActivity(TransformerMixin, BaseEstimator):
 
     def __init__(self):
@@ -43,16 +59,23 @@ class CyclicalFeaturesActivity(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, df, y=None):
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
-        df["timestamp"] = df["timestamp"].dt.hour.astype(float) / 24
-        df["start_time"] = pd.to_datetime(df["start_time"])
-        df["start_time"] = df["start_time"].dt.hour.astype(float) / 24
-        df["timestamp_sin"] = np.sin(2 * np.pi * df["timestamp"])
-        df["timestamp_cos"] = np.cos(2 * np.pi * df["timestamp"])
-        df["start_time_sin"] = np.sin(2 * np.pi * df["start_time"])
-        df["start_time_cos"] = np.cos(2 * np.pi * df["start_time"])
+        timestamp = pd.to_datetime(df["timestamp"]).dt.hour.astype(float) / 24
+        start_time = pd.to_datetime(
+            df["start_time"]).dt.hour.astype(float) / 24
+        df["timestamp_sin"] = np.sin(2 * np.pi * timestamp)
+        df["timestamp_cos"] = np.cos(2 * np.pi * timestamp)
+        df["start_time_sin"] = np.sin(2 * np.pi * start_time)
+        df["start_time_cos"] = np.cos(2 * np.pi * start_time)
         df = df.drop(columns=["timestamp", "start_time"])
         return df
+
+    def inverse_transform(self, target):
+        res = []
+        for row in target:
+            start_time = convert_sin_cos_to_hour(row[2], row[3])
+            timestamp = convert_sin_cos_to_hour(row[0], row[1])
+            res.append((timestamp, start_time))
+        return res
 
     def get_feature_names_out(self):
         return self.columns
@@ -163,13 +186,14 @@ def create_preproc_activity(activity_df):
          handle_unknown="ignore", drop="if_binary"))
     ])
 
-    full_proces = ColumnTransformer(transformers=[
+    full_proces = InvertableColumnTransformer(transformers=[
         ("knn_imputer", pipe_knn_imputer, numerical_features),
-        ("imputer 100", pipe_nan_to_100, beginning_stamina_features),
         ("cat_encoder", pipe_onehot, ["sport"]),
         ("cycle_encoder", CyclicalFeaturesActivity(),
-         ["timestamp", "start_time"])
+         ["timestamp", "start_time"]),
+        ("imputer 100", pipe_nan_to_100, beginning_stamina_features)
     ]).set_output(transform="pandas")
+
     return full_proces
 
 
@@ -185,3 +209,53 @@ def preproc_activity(activity_df=None) -> pd.DataFrame:
     data_preprocessed = full_proces.fit_transform(activity_df)
     print("✅ Preprocess successful")
     return data_preprocessed
+
+
+class InvertableColumnTransformer(ColumnTransformer):
+    """
+    Adds an inverse transform method to the standard sklearn.compose.ColumnTransformer.
+    """
+
+    def inverse_transform(self, X):
+        if isinstance(X, pd.DataFrame):
+            X = X.to_numpy()
+
+        transformer_to_cols = {}
+        out = {}
+        for t in self.transformers_:
+            name = t[0]
+            cols = t[-1]
+            if name not in ("remainder"):
+                transformer_to_cols[name] = cols
+                for col in cols:
+                    out[col] = []
+
+        for name, indices in self.output_indices_.items():
+            transformer = self.named_transformers_.get(name, None)
+            start = indices.start + 1 if indices.start != 0 else indices.start
+            stop = indices.stop + 1 if indices.start != 0 else indices.stop
+
+            arr = X[:, start - 1: stop -
+                    1] if stop > X.shape[1] else X[:, start: stop]
+
+            if transformer in (None, "remainder", "passthrough", "drop"):
+                pass
+
+            else:
+                try:
+                    if isinstance(transformer, Pipeline):
+                        tmp = transformer[1].inverse_transform(arr)
+                        current_cols = transformer_to_cols[name]
+                        for sub in tmp:
+                            for col, val in zip(current_cols, sub):
+                                out[col].append(val)
+                    else:
+                        tmp = transformer.inverse_transform(arr)
+                        current_cols = transformer_to_cols[name]
+                        for sub in tmp:
+                            for col, val in zip(current_cols, sub):
+                                out[col].append(val)
+                except Exception as e:
+                    print(e)
+
+        return pd.DataFrame.from_dict(out)
