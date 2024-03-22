@@ -163,7 +163,7 @@ def home_page():
         st.pyplot(plt)
 
     st.markdown("<h4 style='text-align: left; color: #FF595A;'>How it works</h1>", unsafe_allow_html=True)
-    image = Image.open('raw_data/How_it_works.png')
+    image = Image.open('overcome_tomorrow/api/static_data/How_it_works.png')
     st.image(image, caption='How it works', use_column_width=False)
 
     with col_graph3:
