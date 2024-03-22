@@ -280,6 +280,34 @@ def upload_csv_to_bq(
     upload_dataframe_to_bq(dataframe, table, gcp_project, bq_dataset)
 
 
+def load_csv_from_bq(types,
+                     table: str,
+                     gcp_project: str = GCP_PROJECT,
+                     bq_dataset: str = BQ_DATASET):
+
+    print(f"⌛ Loading {table} data from BigQuery server... ⌛ ")
+
+    query = f"""
+        SELECT *
+        FROM {gcp_project}.{bq_dataset}.{table}
+    """
+    client = bigquery.Client(project=gcp_project)
+    query_job = client.query(query)
+    result = query_job.result()
+    df = result.to_dataframe()
+    df = df.astype(types)
+    print(f"✅ {table} data loaded, with shape {df.shape}")
+    return df
+
+
+def save_csv_from_bq(path: str,
+                     table: str,
+                     gcp_project: str = GCP_PROJECT,
+                     bq_dataset: str = BQ_DATASET):
+    df = load_csv_from_bq(table, gcp_project, bq_dataset)
+    df.to_csv(path)
+
+
 ###################### GOOGLE CLOUD STORAGE FUNCTIONS ##########################
 
 
