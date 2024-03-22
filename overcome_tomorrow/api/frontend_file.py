@@ -7,8 +7,9 @@ from datetime import datetime
 import json
 import dateutil.parser
 from PIL import Image
-from overcome_tomorrow.params import *
+import os
 
+BACKEND_URL = os.environ["BACKEND_URL"]
 
 st.set_page_config(layout="wide")
 # CSS pour changer le fond de l'application / le design des boutons
