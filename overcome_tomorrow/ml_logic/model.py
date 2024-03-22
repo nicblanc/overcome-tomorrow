@@ -34,7 +34,6 @@ def create_sliding_windows_dataset(garmin_data, activities, preproc_garmin_data,
     y_train = []
 
     for i in tqdm(range(steps, activities.shape[0])):
-        # for i in range(steps, steps + 5):
         activity = activities.iloc[[i]]
         activity_time = activity["start_time"][i].strftime('%Y-%m-%d %H:%M:%S')
         window_df = garmin_data[garmin_data["beginTimestamp"]
@@ -54,10 +53,8 @@ def get_sliding_windows_for_n_last_days(garmin_data, preproc_garmin_data, last_d
     steps = days * avg_activities_per_day  # sliding window size
     sliding_windows = []
     last_date = garmin_data.iloc[-1]["beginTimestamp"]
-    # now = datetime.now()
     for i in range(last_days):
         delta = timedelta(days=i)
-        # date = (now - delta)
         date = (last_date - delta)
         date = date.strftime('%Y-%m-%d %H:%M:%S')
         window_df = garmin_data[garmin_data["beginTimestamp"]
@@ -77,7 +74,7 @@ def get_sliding_window_for_date(garmin_data, date=datetime.now()):
 
 
 def create_model(X_train, y_train):
-
+    # TODO implement a real model, not just random layers :D
     model = Sequential()
     model.add(LSTM(units=50, return_sequences=True,
               input_shape=(X_train.shape[1], X_train.shape[2])))
@@ -109,6 +106,7 @@ def create_train_and_save_model(output_path="."):
     # Create model
     epochs = 100
     model = create_model(X_train, y_train)
+    # TODO train test split + validation data
     model.fit(X_train, y_train, batch_size=32, epochs=epochs)
     model.summary()
     model.save(join(output_path, "first_model.keras"))
@@ -129,14 +127,11 @@ def predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, 
     window_df = get_sliding_window_for_date(garmin_data, date)
     input = np.array([preproc_garmin_data.transform(window_df)])
     prediction = model.predict(input)
-    # print(prediction)
     return preproc_activity.inverse_transform(prediction)
 
 
 def predict_for_last_n_days(garmin_data, preproc_garmin_data, preproc_activity, model, last_days=30):
     input = get_sliding_windows_for_n_last_days(
         garmin_data, preproc_garmin_data, last_days)
-    # input = np.array([preproc_garmin_data.transform(window_df)])
     prediction = model.predict(input)
-    # print(prediction)
     return preproc_activity.inverse_transform(prediction)

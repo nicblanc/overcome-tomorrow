@@ -47,7 +47,6 @@ def convert_sin_cos_to_hour(s, c):
     seconds = (time*3600) % 60
 
     return ("%d:%02d.%02d" % (hours, minutes, seconds))
-    # return angle / 24
 
 
 class CyclicalFeaturesActivity(TransformerMixin, BaseEstimator):
@@ -232,17 +231,9 @@ class InvertableColumnTransformer(ColumnTransformer):
 
         for name, indices in self.output_indices_.items():
             transformer = self.named_transformers_.get(name, None)
-            # start = indices.start + 1 if indices.start != 0 else indices.start
-            # stop = indices.stop + 1 if indices.start != 0 else indices.stop
-
-            # arr = X[:, start - 1: stop -
-            #         1] if stop > X.shape[1] else X[:, start: stop]
-
             start = indices.start
             stop = indices.stop
             arr = X[:, start: stop]
-            # print(f"{start = } {stop = }")
-            # print(f"{arr = }")
             if transformer in (None, "remainder", "passthrough", "drop"):
                 pass
 
