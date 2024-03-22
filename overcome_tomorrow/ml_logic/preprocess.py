@@ -46,7 +46,7 @@ def convert_sin_cos_to_hour(s, c):
     minutes = (time*60) % 60
     seconds = (time*3600) % 60
 
-    return ("%d:%02d.%02d" % (hours, minutes, seconds))
+    return ("%d:%02d:%02d" % (hours, minutes, seconds))
 
 
 class CyclicalFeaturesActivity(TransformerMixin, BaseEstimator):
