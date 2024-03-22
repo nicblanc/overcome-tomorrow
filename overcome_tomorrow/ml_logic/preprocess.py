@@ -232,12 +232,17 @@ class InvertableColumnTransformer(ColumnTransformer):
 
         for name, indices in self.output_indices_.items():
             transformer = self.named_transformers_.get(name, None)
-            start = indices.start + 1 if indices.start != 0 else indices.start
-            stop = indices.stop + 1 if indices.start != 0 else indices.stop
+            # start = indices.start + 1 if indices.start != 0 else indices.start
+            # stop = indices.stop + 1 if indices.start != 0 else indices.stop
 
-            arr = X[:, start - 1: stop -
-                    1] if stop > X.shape[1] else X[:, start: stop]
+            # arr = X[:, start - 1: stop -
+            #         1] if stop > X.shape[1] else X[:, start: stop]
 
+            start = indices.start
+            stop = indices.stop
+            arr = X[:, start: stop]
+            # print(f"{start = } {stop = }")
+            # print(f"{arr = }")
             if transformer in (None, "remainder", "passthrough", "drop"):
                 pass
 

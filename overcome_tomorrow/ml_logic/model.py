@@ -6,7 +6,10 @@ from tensorflow.keras import Model, Sequential, layers, regularizers, optimizers
 from tensorflow.keras.callbacks import EarlyStopping
 from overcome_tomorrow.utils.data import *
 from overcome_tomorrow.ml_logic.preprocess import *
+from os.path import isfile, join, exists
 from tqdm import tqdm
+from pickle import dump, load
+from datetime import datetime, timedelta
 
 
 def get_data():
@@ -45,6 +48,34 @@ def create_sliding_windows_dataset(garmin_data, activities, preproc_garmin_data,
     return X_train, y_train
 
 
+def get_sliding_windows_for_n_last_days(garmin_data, preproc_garmin_data, last_days=30):
+    days = 30
+    avg_activities_per_day = 2
+    steps = days * avg_activities_per_day  # sliding window size
+    sliding_windows = []
+    last_date = garmin_data.iloc[-1]["beginTimestamp"]
+    # now = datetime.now()
+    for i in range(last_days):
+        delta = timedelta(days=i)
+        # date = (now - delta)
+        date = (last_date - delta)
+        date = date.strftime('%Y-%m-%d %H:%M:%S')
+        window_df = garmin_data[garmin_data["beginTimestamp"]
+                                < date].iloc[-steps - 1:-1]
+        sliding_windows.append(preproc_garmin_data.transform(window_df))
+    return np.array(sliding_windows)
+
+
+def get_sliding_window_for_date(garmin_data, date=datetime.now()):
+    days = 30
+    avg_activities_per_day = 2
+    steps = days * avg_activities_per_day  # sliding window size
+    date = date.strftime('%Y-%m-%d %H:%M:%S')
+    window_df = garmin_data[garmin_data["beginTimestamp"]
+                            < date].iloc[-steps - 1:-1]
+    return window_df
+
+
 def create_model(X_train, y_train):
 
     model = Sequential()
@@ -62,7 +93,7 @@ def create_model(X_train, y_train):
     return model
 
 
-def create_train_and_save_model():
+def create_train_and_save_model(output_path="."):
     garmin_data, activities = get_data()
 
     # Fit Preprocessors
@@ -80,4 +111,32 @@ def create_train_and_save_model():
     model = create_model(X_train, y_train)
     model.fit(X_train, y_train, batch_size=32, epochs=epochs)
     model.summary()
-    model.save("first_model.keras")
+    model.save(join(output_path, "first_model.keras"))
+    dump(preproc_garmin_data, open(
+        join(output_path, "preproc_garmin_data.pkl"), "wb"))
+    dump(preproc_activity, open(join(output_path, "preproc_activity.pkl"), "wb"))
+
+
+def load_preprocessors_and_model(path="."):
+    preproc_garmin_data = load(
+        open(join(path, "preproc_garmin_data.pkl"), "rb"))
+    preproc_activity = load(open(join(path, "preproc_activity.pkl"), "rb"))
+    model = load_model(join(path, "first_model.keras"))
+    return preproc_garmin_data, preproc_activity, model
+
+
+def predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, date=datetime.now()):
+    window_df = get_sliding_window_for_date(garmin_data, date)
+    input = np.array([preproc_garmin_data.transform(window_df)])
+    prediction = model.predict(input)
+    # print(prediction)
+    return preproc_activity.inverse_transform(prediction)
+
+
+def predict_for_last_n_days(garmin_data, preproc_garmin_data, preproc_activity, model, last_days=30):
+    input = get_sliding_windows_for_n_last_days(
+        garmin_data, preproc_garmin_data, last_days)
+    # input = np.array([preproc_garmin_data.transform(window_df)])
+    prediction = model.predict(input)
+    # print(prediction)
+    return preproc_activity.inverse_transform(prediction)
