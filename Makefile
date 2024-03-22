@@ -33,3 +33,15 @@ run_api:
 
 upload_files_to_bq:
 	python -c 'from overcome_tomorrow.utils.data import upload_csv_to_bq; upload_csv_to_bq("raw_data/activities.csv"); upload_csv_to_bq("raw_data/garmin_data.csv")'
+
+upload_model_to_gcs:
+	python -c 'from overcome_tomorrow.utils.data import upload_model_to_gcs; upload_model_to_gcs();'
+
+upload_preprocessors_to_gcs:
+	python -c 'from overcome_tomorrow.utils.data import upload_preprocessors_to_gcs; upload_preprocessors_to_gcs();'
+
+upload_model_and_preprocessors_to_gcs:
+	python -c 'from overcome_tomorrow.utils.data import upload_model_to_gcs, upload_preprocessors_to_gcs; upload_model_to_gcs(); upload_preprocessors_to_gcs()'
+
+downpload_model_and_preprocessors_from_gcs:
+	python -c 'from overcome_tomorrow.utils.data import download_model_and_preprocessors_from_gcs; download_model_and_preprocessors_from_gcs();'

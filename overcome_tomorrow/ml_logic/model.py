@@ -95,7 +95,11 @@ def create_model(X_train, y_train):
     return model
 
 
-def create_train_and_save_model(output_path="."):
+def create_train_and_save_model(model_path: str = MODEL_PATH,
+                                model_filename: str = MODEL_NAME,
+                                preprocessors_path: str = MODEL_PATH,
+                                preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
     garmin_data, activities = get_data()
 
     # Fit Preprocessors
@@ -114,17 +118,23 @@ def create_train_and_save_model(output_path="."):
     # TODO train test split + validation data
     model.fit(X_train, y_train, batch_size=32, epochs=epochs)
     model.summary()
-    model.save(join(output_path, "first_model.keras"))
+    model.save(join(model_path, model_filename))
     dump(preproc_garmin_data, open(
-        join(output_path, "preproc_garmin_data.pkl"), "wb"))
-    dump(preproc_activity, open(join(output_path, "preproc_activity.pkl"), "wb"))
+        join(preprocessors_path, preproc_garmin_data_filename), "wb"))
+    dump(preproc_activity, open(
+        join(preprocessors_path, preproc_activity_filename), "wb"))
 
 
-def load_preprocessors_and_model(path="."):
+def load_preprocessors_and_model(model_path: str = MODEL_PATH,
+                                 model_filename: str = MODEL_NAME,
+                                 preprocessors_path: str = MODEL_PATH,
+                                 preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                 preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
     preproc_garmin_data = load(
-        open(join(path, "preproc_garmin_data.pkl"), "rb"))
-    preproc_activity = load(open(join(path, "preproc_activity.pkl"), "rb"))
-    model = load_model(join(path, "first_model.keras"))
+        open(join(preprocessors_path, preproc_garmin_data_filename), "rb"))
+    preproc_activity = load(
+        open(join(preprocessors_path, preproc_activity_filename), "rb"))
+    model = load_model(join(model_path, model_filename))
     return preproc_garmin_data, preproc_activity, model
 
 

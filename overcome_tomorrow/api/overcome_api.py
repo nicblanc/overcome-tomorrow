@@ -5,6 +5,7 @@ from overcome_tomorrow.ml_logic.model import *
 from overcome_tomorrow.ml_logic.preprocess import *
 from datetime import datetime, timedelta
 import pandas as pd
+import schedule
 
 
 tomorrow_app = FastAPI()
@@ -65,9 +66,34 @@ DEFAULT_ACTIVITY = {
     "activity_id": "nicko64@hotmail.fr_213811102683"
 }
 
-preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model(
-    MODEL_PATH)
-garmin_data, activities = get_data(DATA_PATH)
+
+model_blob_updated, preproc_garmin_data_blob_updated, preproc_activity_blob_updated = get_last_modified_dates_for_model_and_preprocessors_from_gcs()
+download_model_and_preprocessors_from_gcs()
+
+preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model()
+garmin_data, activities = get_data()
+
+
+def check_model_preprocessors_updated():
+    print("⌛ Checking if model and preprocessors are up to date")
+    global model_blob_updated
+    global preproc_garmin_data_blob_updated
+    global preproc_activity_blob_updated
+
+    global preproc_garmin_data
+    global preproc_activity
+    global model
+
+    model_blob_updated_tmp, preproc_garmin_data_blob_updated_tmp, preproc_activity_blob_updated_tmp = get_last_modified_dates_for_model_and_preprocessors_from_gcs()
+    if (model_blob_updated_tmp > model_blob_updated) or (preproc_garmin_data_blob_updated_tmp > preproc_garmin_data_blob_updated) or (preproc_activity_blob_updated_tmp > preproc_activity_blob_updated):
+        download_model_and_preprocessors_from_gcs()
+        model_blob_updated = model_blob_updated_tmp
+        preproc_garmin_data_blob_updated = preproc_garmin_data_blob_updated_tmp
+        preproc_activity_blob_updated = preproc_activity_blob_updated_tmp
+        preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model()
+
+
+schedule.every(1).minutes.do(check_model_preprocessors_updated)
 
 
 @tomorrow_app.get("/models", tags=["models"])
@@ -96,11 +122,13 @@ def predict_next_activity_for_models(models_name: str = "DEFAULT"):
 def predict_next_activity(model_name: str):
     # TODO get activity for given model
     # TODO handle 'DEFAULT' model
+    schedule.run_pending()
     return predict_for_last_n_days(garmin_data, preproc_garmin_data, preproc_activity, model, 1).iloc[0].to_json()
 
 
 @tomorrow_app.get("/activities/date", tags=["activities"])
 def predict_activity_for_date(date: datetime = datetime.now()):
+    schedule.run_pending()
     return predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, date).iloc[0].to_json()
 
 
