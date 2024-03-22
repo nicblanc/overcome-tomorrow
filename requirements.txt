@@ -27,3 +27,6 @@ uvicorn
 # Front end
 streamlit
 requests
+
+#Schedule
+schedule
