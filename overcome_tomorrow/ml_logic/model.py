@@ -1,22 +1,27 @@
 import numpy as np
 import pandas as pd
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, LSTM, Dropout, Activation
-from tensorflow.keras import Model, Sequential, layers, regularizers, optimizers
-from tensorflow.keras.callbacks import EarlyStopping
 from overcome_tomorrow.utils.data import *
 from overcome_tomorrow.ml_logic.preprocess import *
+from overcome_tomorrow.params import *
 from os.path import isfile, join, exists
 from tqdm import tqdm
 from pickle import dump, load
 from datetime import datetime, timedelta
 
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Dense, LSTM, Dropout, Activation
+from tensorflow.keras import Model, Sequential, layers, regularizers, optimizers
+from tensorflow.keras.callbacks import EarlyStopping
 
-def get_data():
+
+def get_data(input_path=DATA_PATH):
     # TODO load from Google Cloud
-    garmin_data = merge_all_data(
-        "../raw_data/Wellness/", "../raw_data/Fitness/", "../raw_data/Aggregator/")
-    activities = pd.read_csv("../raw_data/activities.csv",
+    wellness_path = join(DATA_PATH, "Wellness/")
+    fitness_path = join(DATA_PATH, "Fitness/")
+    aggregator_path = join(DATA_PATH, "Aggregator/")
+    activities_path = join(DATA_PATH, "activities.csv")
+    garmin_data = merge_all_data(wellness_path, fitness_path, aggregator_path)
+    activities = pd.read_csv(activities_path,
                              parse_dates=["timestamp", "start_time"])
     garmin_data.sort_values(by=["beginTimestamp"], inplace=True)
     garmin_data.dropna(subset=["beginTimestamp"], inplace=True)
