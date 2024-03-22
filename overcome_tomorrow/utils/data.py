@@ -3,7 +3,6 @@ import pathlib
 import os
 
 from google.cloud import bigquery, storage
-from colorama import Fore, Style
 from overcome_tomorrow.params import *
 from os.path import join
 
@@ -261,8 +260,7 @@ def upload_dataframe_to_bq(
 
     """ Upload dataset to Google BigQuery """
     full_table_name = f"{gcp_project}.{bq_dataset}.{table}"
-    print(Fore.BLUE +
-          f"\nSave data to BigQuery @ {full_table_name}...:" + Style.RESET_ALL)
+    print(f"\n⌛ Saving data to BigQuery @ {full_table_name}... ⌛")
 
     print(f"\nWrite {full_table_name} ({data.shape[0]} rows)")
     job = client.load_table_from_dataframe(
@@ -280,6 +278,34 @@ def upload_csv_to_bq(
     dataframe = pd.read_csv(path)
     table = pathlib.PurePath(path).stem
     upload_dataframe_to_bq(dataframe, table, gcp_project, bq_dataset)
+
+
+def load_csv_from_bq(types,
+                     table: str,
+                     gcp_project: str = GCP_PROJECT,
+                     bq_dataset: str = BQ_DATASET):
+
+    print(f"⌛ Loading {table} data from BigQuery server... ⌛ ")
+
+    query = f"""
+        SELECT *
+        FROM {gcp_project}.{bq_dataset}.{table}
+    """
+    client = bigquery.Client(project=gcp_project)
+    query_job = client.query(query)
+    result = query_job.result()
+    df = result.to_dataframe()
+    df = df.astype(types)
+    print(f"✅ {table} data loaded, with shape {df.shape}")
+    return df
+
+
+def save_csv_from_bq(path: str,
+                     table: str,
+                     gcp_project: str = GCP_PROJECT,
+                     bq_dataset: str = BQ_DATASET):
+    df = load_csv_from_bq(table, gcp_project, bq_dataset)
+    df.to_csv(path)
 
 
 ###################### GOOGLE CLOUD STORAGE FUNCTIONS ##########################
