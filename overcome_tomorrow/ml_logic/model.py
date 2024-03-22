@@ -16,17 +16,47 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 def get_data(input_path=DATA_PATH):
     # TODO load from Google Cloud
+    try:
+        activities = load_csv_from_bq(DTYPES_ACTIVITIES_RAW, "activities")
+        garmin_data = load_csv_from_bq(DTYPES_GARMIN_DATA_RAW, "garmin_data")
+
+        garmin_data.sort_values(by=["beginTimestamp"], inplace=True)
+        garmin_data.dropna(subset=["beginTimestamp"], inplace=True)
+        garmin_data.reset_index(drop=True, inplace=True)
+        activities.sort_values(by=["start_time"], inplace=True)
+        activities.reset_index(drop=True, inplace=True)
+
+        return garmin_data, activities
+    except Exception as e:
+        print(
+            f"⚠️ Try to load for local data, following error occured:\n{e} ⚠️")
+        wellness_path = join(DATA_PATH, "Wellness/")
+        fitness_path = join(DATA_PATH, "Fitness/")
+        aggregator_path = join(DATA_PATH, "Aggregator/")
+        activities_path = join(DATA_PATH, "activities.csv")
+        garmin_data = merge_all_data(
+            wellness_path, fitness_path, aggregator_path)
+        activities = pd.read_csv(activities_path,
+                                 parse_dates=["timestamp", "start_time"])
+        garmin_data.sort_values(by=["beginTimestamp"], inplace=True)
+        garmin_data.dropna(subset=["beginTimestamp"], inplace=True)
+        activities.sort_values(by=["start_time"], inplace=True)
+        activities.reset_index(drop=True, inplace=True)
+        return garmin_data, activities
+
     wellness_path = join(DATA_PATH, "Wellness/")
     fitness_path = join(DATA_PATH, "Fitness/")
     aggregator_path = join(DATA_PATH, "Aggregator/")
     activities_path = join(DATA_PATH, "activities.csv")
     garmin_data = merge_all_data(wellness_path, fitness_path, aggregator_path)
-    activities = pd.read_csv(activities_path,
-                             parse_dates=["timestamp", "start_time"])
+    activities = pd.read_csv(activities_path, parse_dates=[
+                             "timestamp", "start_time"])
     garmin_data.sort_values(by=["beginTimestamp"], inplace=True)
     garmin_data.dropna(subset=["beginTimestamp"], inplace=True)
     activities.sort_values(by=["start_time"], inplace=True)
     activities.reset_index(drop=True, inplace=True)
+    print(garmin_data.info())
+    print(activities.info())
     return garmin_data, activities
 
 

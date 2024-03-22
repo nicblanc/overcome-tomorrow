@@ -11,3 +11,17 @@ GCP_REGION = os.environ.get("GCP_REGION")
 BQ_DATASET = os.environ.get("BQ_DATASET")
 BQ_REGION = os.environ.get("BQ_REGION")
 BUCKET_NAME = os.environ.get("BUCKET_NAME")
+
+BACKEND_URL = os.environ.get("BACKEND_URL")
+
+
+DTYPES_GARMIN_DATA_RAW = {
+    "start_sleep": "datetime64[ns, UTC]",
+    "end_sleep": "datetime64[ns, UTC]",
+    "beginTimestamp": "datetime64[ns, UTC]"
+}
+
+DTYPES_ACTIVITIES_RAW = {
+    "timestamp": "datetime64[ns, UTC]",
+    "start_time": "datetime64[ns, UTC]"
+}
