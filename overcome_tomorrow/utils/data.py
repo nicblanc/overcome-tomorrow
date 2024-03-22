@@ -3,7 +3,6 @@ import pathlib
 import os
 
 from google.cloud import bigquery, storage
-from colorama import Fore, Style
 from overcome_tomorrow.params import *
 from os.path import join
 
@@ -261,8 +260,7 @@ def upload_dataframe_to_bq(
 
     """ Upload dataset to Google BigQuery """
     full_table_name = f"{gcp_project}.{bq_dataset}.{table}"
-    print(Fore.BLUE +
-          f"\nSave data to BigQuery @ {full_table_name}...:" + Style.RESET_ALL)
+    print(f"\n⌛ Saving data to BigQuery @ {full_table_name}... ⌛")
 
     print(f"\nWrite {full_table_name} ({data.shape[0]} rows)")
     job = client.load_table_from_dataframe(

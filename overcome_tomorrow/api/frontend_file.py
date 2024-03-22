@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 import dateutil.parser
 from PIL import Image
+from overcome_tomorrow.params import *
 
 
 st.set_page_config(layout="wide")
@@ -57,24 +58,26 @@ def extract_activity_from_json(json_response):
 
 def display_activities_sum_true():
     response = requests.get(
-        f'http://0.0.0.0:8000/activities?activity_datetime=2024-03-04&summarized=true').json()[0]
+        f'{BACKEND_URL}/activities?activity_datetime=2024-03-04&summarized=true').json()[0]
     return extract_activity_from_json(response)
 
 
 def predict_next_activity():
     next_activity = json.loads(requests.get(
-        f'http://0.0.0.0:8000/activities/next').json()[0])
+        f'{BACKEND_URL}/activities/next').json()[0])
     print(next_activity)
     return extract_activity_from_json(next_activity)
 
+
 def predict_activity_date(date):
     date_activity = json.loads(requests.get(
-        f'http://0.0.0.0:8000/activities/date?date={date}').json())
+        f'{BACKEND_URL}/activities/date?date={date}').json())
     return extract_activity_from_json(date_activity)
+
 
 def display_activities_sum_false():
     response_false = json.loads(requests.get(
-        f'http://0.0.0.0:8000/activities?activity_datetime=2024-03-04&summarized=false').json()[0])
+        f'{BACKEND_URL}/activities?activity_datetime=2024-03-04&summarized=false').json()[0])
     data_power = response_false['power']
     data_stamina = response_false['137']
     data_speed = response_false['enhanced_speed']
@@ -95,7 +98,8 @@ def home_page():
                 "Our platform uses advanced DeepLearning models to forecast your next sports activity, ensuring each suggestion is perfectly tailored to your fitness level and goals.<br><br>"
                 "Begin your journey today and transform your performance for tomorrow.</p>", unsafe_allow_html=True)
 
-    st.markdown("<h4 style='text-align: left; color: #FF595A;'>Example of data from one of our athletes :</h1>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: left; color: #FF595A;'>Example of data from one of our athletes :</h1>",
+                unsafe_allow_html=True)
     st.markdown("<p style='text-align: left;color:#CAC0B3;'>Nicolas's marathon run in Chicago</p>",
                 unsafe_allow_html=True)
 
@@ -162,7 +166,8 @@ def home_page():
         # Afficher le graphique dans Streamlit avec st.pyplot()
         st.pyplot(plt)
 
-    st.markdown("<h4 style='text-align: left; color: #FF595A;'>How it works</h1>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: left; color: #FF595A;'>How it works</h1>",
+                unsafe_allow_html=True)
     image = Image.open('raw_data/How_it_works.png')
     st.image(image, caption='How it works', use_column_width=False)
 
@@ -201,62 +206,81 @@ def second_page():
     # Accueil de la deuxième page
     st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Your Journey</h1>",
                 unsafe_allow_html=True)
-    st.markdown("<h4 style='text-align: left; color: #FF595A;'>Predict your next activity :</h1>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: left; color: #FF595A;'>Predict your next activity :</h1>",
+                unsafe_allow_html=True)
 
     st.markdown("<p style='text-align: left;color:#CAC0B3;'>Here you can predict your next activity based on your last 60 activities : </p>",
                 unsafe_allow_html=True)
 
     # Initialisation des variables pour que l'affichage démmarre à 0
-    calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, time = (0, "En attente", 0, 0, 0, 0, 0, (0, 0))
+    calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, time = (
+        0, "En attente", 0, 0, 0, 0, 0, (0, 0))
 
     if st.button("EVALUATE 📈"):
         # Nouvelles valeurs des variables
         calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, time = predict_next_activity()
 
-    st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Activity : {sport}</p>", unsafe_allow_html=True)
+    st.markdown(
+        f"<p style='text-align: left;color:#CAC0B3;'>Activity : {sport}</p>", unsafe_allow_html=True)
 
     col_graph1, col_graph2, col_info = st.columns([3, 3, 2])
 
     with col_graph1:
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance} km</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Time : {time[0]}h{time[1]} </p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate,0)}</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance} km</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Time : {time[0]}h{time[1]} </p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate,0)}</p>", unsafe_allow_html=True)
 
     with col_graph2:
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Average Speed : {avg_speed} km/h</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Max Speed : {max_speed} km/h</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Average Speed : {avg_speed} km/h</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Max Speed : {max_speed} km/h</p>", unsafe_allow_html=True)
 
     with col_info:
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Avg Power: {avg_power} Watt</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Calories : {round(calories,2)} Kcal</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Avg Power: {avg_power} Watt</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Calories : {round(calories,2)} Kcal</p>", unsafe_allow_html=True)
 
-    st.markdown("<h4 style='text-align: left; color: #FF595A;'>Predict with a given date :</h1>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: left; color: #FF595A;'>Predict with a given date :</h1>",
+                unsafe_allow_html=True)
     st.markdown("""<p style='text-align: left;color:#CAC0B3;'>Here you can predict an activity with a given date which is
                 based on the last 60 activities before this date. You can compare this prediction with your actual performance this day : </p>""",
                 unsafe_allow_html=True)
     date = st.date_input(
         "Choose your date 📅")
-    calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, time_date = (0, "En attente", 0, 0, 0, 0, 0, (0, 0))
+    calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, time_date = (
+        0, "En attente", 0, 0, 0, 0, 0, (0, 0))
 
     if st.button("EVALUATE 📊"):
         # Nouvelles valeurs des variables
-        calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, time_date = predict_activity_date(date)
+        calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, time_date = predict_activity_date(
+            date)
 
     col_graph1_bis, col_graph2_bis, col_info_bis = st.columns([3, 3, 2])
 
     with col_graph1_bis:
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance_date} km</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Time : {time_date[0]}h{time_date[1]} </p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate,0)}</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance_date} km</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Time : {time_date[0]}h{time_date[1]} </p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate,0)}</p>", unsafe_allow_html=True)
 
     with col_graph2_bis:
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Average Speed : {avg_speed_date} km/h</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Max Speed : {max_speed_date} km/h</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Average Speed : {avg_speed_date} km/h</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Max Speed : {max_speed_date} km/h</p>", unsafe_allow_html=True)
 
     with col_info_bis:
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Avg Power: {avg_power_date} Watt</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='text-align: left;color:#CAC0B3;'>Calories : {round(calories_date,2)} Kcal</p>", unsafe_allow_html=True)
-
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Avg Power: {avg_power_date} Watt</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Calories : {round(calories_date,2)} Kcal</p>", unsafe_allow_html=True)
 
 
 # Page - Data analysis
