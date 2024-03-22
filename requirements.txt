@@ -23,3 +23,7 @@ psycopg2-binary
 fastapi==0.108.0
 pytz
 uvicorn
+
+# Front end
+streamlit
+requests
