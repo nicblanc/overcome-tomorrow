@@ -42,10 +42,7 @@ def extract_activity_from_json(json_response):
     start_time = json_response.get('start_time')
     timestamp_dt = dateutil.parser.parse(timestamp)
     start_time_dt = dateutil.parser.parse(start_time)
-    # time_str = '11::33::54'
-# time_obj = time.strptime(time_str, '%H::%M::%S')
-    # timestamp_dt = datetime.strptime(timestamp, "%d/%m/%Y %H:%M")
-    # start_time_dt = datetime.strptime(start_time, "%d/%m/%Y %H:%M")
+
     # Calcul de la différence en heures et minutes
     diff = timestamp_dt - start_time_dt
 
