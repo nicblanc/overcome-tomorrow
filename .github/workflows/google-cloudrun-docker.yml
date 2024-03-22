@@ -1,0 +1,54 @@
+name: Build and Deploy to Cloud Run
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  deploy:
+    # Use Prod environment for secrets and vars
+    environment: Prod
+    # Add 'id-token' with the intended permissions for workload identity federation
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Google Auth
+        id: auth
+        uses: 'google-github-actions/auth@v2.1.2'
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      # Authenticate Docker to Google Cloud Artifact Registry
+      - name: Docker Auth
+        id: docker-auth
+        uses: docker/login-action@v3
+        with:
+          registry: '${{ vars.GCP_REGION }}-docker.pkg.dev'
+          username: _json_key
+          password: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Build and Push Container
+        run: |-
+          docker build -t "${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${{ vars.GCP_REPOSITORY }}/${{ vars.IMAGE_NAME }}:${{ github.sha }}" ./
+          docker push "${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${{ vars.GCP_REPOSITORY }}/${{ vars.IMAGE_NAME }}:${{ github.sha }}"
+
+      # END - Docker auth and build
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2.2.0
+        with:
+          flags: '--allow-unauthenticated --memory ${{ vars.GAR_MEMORY }}'
+          service: ${{ vars.IMAGE_NAME }}
+          region: ${{ vars.GCP_REGION }}
+          image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${{ vars.GCP_REPOSITORY }}/${{ vars.IMAGE_NAME }}:${{ github.sha }}
+
+      # If required, use the Cloud Run url output in later steps
+      - name: Show Output
+        run: echo ${{ steps.deploy.outputs.url }}
