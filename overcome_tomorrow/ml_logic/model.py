@@ -176,8 +176,38 @@ def predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, 
     return preproc_activity.inverse_transform(prediction)
 
 
+def predict_vs_real_for_date(garmin_data, activities, preproc_garmin_data, preproc_activity, model, date=datetime.now()):
+    prediction = predict_for_date(
+        garmin_data, preproc_garmin_data, preproc_activity, model, date)
+    reals = activities[activities["start_time"].dt.strftime(
+        '%Y-%m-%d %H:%M:%S') >= date.strftime('%Y-%m-%d %H:%M:%S')]
+    if len(reals) > 0:
+        return pd.concat([prediction, reals.iloc[[0]]],  keys=['prediction', "real"])
+    return pd.concat([prediction],  keys=["prediction"])
+
+
 def predict_for_last_n_days(garmin_data, preproc_garmin_data, preproc_activity, model, last_days=30):
     input = get_sliding_windows_for_n_last_days(
         garmin_data, preproc_garmin_data, last_days)
-    prediction = model.predict(input)
-    return preproc_activity.inverse_transform(prediction)
+    predictions = model.predict(input)
+    return preproc_activity.inverse_transform(predictions)
+
+
+def predict_vs_real_for_last_n_days(garmin_data, activities, preproc_garmin_data, preproc_activity, model, last_days=30):
+    # input = get_sliding_windows_for_n_last_days(
+    #     garmin_data, preproc_garmin_data, last_days)
+    # predictions = preproc_activity.inverse_transform(model.predict(input))
+
+    delta = timedelta(days=last_days)
+    last_date = (garmin_data.iloc[-1]["beginTimestamp"] -
+                 delta).strftime('%Y-%m-%d %H:%M:%S')
+    date = garmin_data[garmin_data["beginTimestamp"]
+                       < last_date].iloc[-1]["beginTimestamp"]
+
+    predictions = predict_for_last_n_days(
+        garmin_data, preproc_garmin_data, preproc_activity, model, last_days)
+
+    reals = activities[activities["start_time"].dt.strftime(
+        '%Y-%m-%d %H:%M:%S') >= date.strftime('%Y-%m-%d %H:%M:%S')]
+    size = min(len(predictions), len(reals))
+    return pd.concat([predictions, reals.iloc[0:size]],  keys=['predictions', "reals"])
