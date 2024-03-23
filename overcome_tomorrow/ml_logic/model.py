@@ -141,11 +141,19 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
     # TODO train test split + validation data
     model.fit(X_train, y_train, batch_size=32, epochs=epochs)
     model.summary()
-    model.save(join(model_path, model_filename))
+    full_model_path = join(model_path, model_filename)
+    model.save(full_model_path)
     dump(preproc_garmin_data, open(
         join(preprocessors_path, preproc_garmin_data_filename), "wb"))
     dump(preproc_activity, open(
         join(preprocessors_path, preproc_activity_filename), "wb"))
+
+    try:
+        upload_model_to_gcs(model_path=full_model_path)
+        upload_preprocessors_to_gcs(preprocessors_path=preprocessors_path)
+    except Exception as e:
+        print(
+            f"\n⚠️ Cannot upload model/preprocessors to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
 
 
 def load_preprocessors_and_model(model_path: str = MODEL_PATH,
