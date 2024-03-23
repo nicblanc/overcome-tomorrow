@@ -15,7 +15,6 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 
 def get_data(input_path=DATA_PATH):
-    # TODO load from Google Cloud
     try:
         activities = load_csv_from_bq(DTYPES_ACTIVITIES_RAW, "activities")
         garmin_data = load_csv_from_bq(DTYPES_GARMIN_DATA_RAW, "garmin_data")
@@ -29,13 +28,22 @@ def get_data(input_path=DATA_PATH):
         return garmin_data, activities
     except Exception as e:
         print(
-            f"⚠️ Try to load for local data, following error occured:\n{e} ⚠️")
-        wellness_path = join(DATA_PATH, "Wellness/")
-        fitness_path = join(DATA_PATH, "Fitness/")
-        aggregator_path = join(DATA_PATH, "Aggregator/")
+            f"⚠️ Trying to load data locally ⚠️\n Following error occured during loading data from BigQuery:\n{e}")
+
+        garmin_data_path = join(DATA_PATH, "garmin_data.csv")
         activities_path = join(DATA_PATH, "activities.csv")
-        garmin_data = merge_all_data(
-            wellness_path, fitness_path, aggregator_path)
+        garmin_data = None
+
+        try:
+            garmin_data = pd.read_csv(garmin_data_path, parse_dates=[
+                                      "start_sleep", "end_sleep", "beginTimestamp"])
+        except Exception:
+            wellness_path = join(DATA_PATH, "Wellness/")
+            fitness_path = join(DATA_PATH, "Fitness/")
+            aggregator_path = join(DATA_PATH, "Aggregator/")
+            garmin_data = merge_all_data(
+                wellness_path, fitness_path, aggregator_path)
+
         activities = pd.read_csv(activities_path,
                                  parse_dates=["timestamp", "start_time"])
         garmin_data.sort_values(by=["beginTimestamp"], inplace=True)
@@ -43,21 +51,6 @@ def get_data(input_path=DATA_PATH):
         activities.sort_values(by=["start_time"], inplace=True)
         activities.reset_index(drop=True, inplace=True)
         return garmin_data, activities
-
-    wellness_path = join(DATA_PATH, "Wellness/")
-    fitness_path = join(DATA_PATH, "Fitness/")
-    aggregator_path = join(DATA_PATH, "Aggregator/")
-    activities_path = join(DATA_PATH, "activities.csv")
-    garmin_data = merge_all_data(wellness_path, fitness_path, aggregator_path)
-    activities = pd.read_csv(activities_path, parse_dates=[
-                             "timestamp", "start_time"])
-    garmin_data.sort_values(by=["beginTimestamp"], inplace=True)
-    garmin_data.dropna(subset=["beginTimestamp"], inplace=True)
-    activities.sort_values(by=["start_time"], inplace=True)
-    activities.reset_index(drop=True, inplace=True)
-    print(garmin_data.info())
-    print(activities.info())
-    return garmin_data, activities
 
 
 def create_sliding_windows_dataset(garmin_data, activities, preproc_garmin_data, preproc_activity):

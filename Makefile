@@ -4,7 +4,7 @@ reinstall_package:
 	@pip install -e .
 
 build_dev_image:
-	docker build --tag=$$IMAGE_NAME:dev .
+	docker build --build-arg data_path=$$DATA_PATH --build-arg model_path=$$MODEL_PATH --build-arg model_name=$$MODEL_NAME --build-arg activity_preproc_name=$$ACTIVITY_PREPROC_NAME --build-arg garmin_data_preproc_name=$$GARMIN_DATA_PREPROC_NAME -f Dockerfile_dev --tag=$$IMAGE_NAME:dev .
 
 run_dev_image:
 	docker run -e PORT=$$PORT -p $$PORT:$$PORT --env-file .env $$IMAGE_NAME:dev
