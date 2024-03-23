@@ -2,8 +2,10 @@ import pandas as pd
 import pathlib
 import os
 
+from datetime import datetime
 from google.cloud import bigquery, storage
 from overcome_tomorrow.params import *
+
 from os.path import join
 
 ######################### LOADING FUNCTION ####################################
@@ -363,11 +365,18 @@ def get_model_and_preprocessors_blobs_from_gcs(model_filename: str = MODEL_NAME,
                                                preproc_activity_filename: str = ACTIVITY_PREPROC_NAME,
                                                bucket_name: str = BUCKET_NAME):
 
-    client = storage.Client()
+    client = None
+    try:
+        client = storage.Client()
+    except Exception as e:
+        print(
+            f"\n⚠️ Cannot connect to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
+        return None, None, None
+
     bucket = client.get_bucket(bucket_name)
     if not bucket.exists():
         print(f"\n❌ Bucket {bucket_name} not found")
-        return None
+        return None, None, None
 
     preproc_garmin_data_blob = bucket.blob(
         f"models/{preproc_garmin_data_filename}")
@@ -376,13 +385,13 @@ def get_model_and_preprocessors_blobs_from_gcs(model_filename: str = MODEL_NAME,
 
     if not preproc_garmin_data_blob.exists():
         print(f"\n❌ Blob {preproc_garmin_data_filename} not found")
-        return None
+        return None, None, None
     if not preproc_activity_blob.exists():
         print(f"\n❌ Blob {preproc_activity_filename} not found")
-        return None
+        return None, None, None
     if not model_blob.exists():
         print(f"\n❌ Blob {model_filename} not found")
-        return None
+        return None, None, None
 
     return model_blob, preproc_garmin_data_blob, preproc_activity_blob
 
@@ -391,8 +400,13 @@ def get_last_modified_dates_for_model_and_preprocessors_from_gcs(model_filename:
                                                                  preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
                                                                  preproc_activity_filename: str = ACTIVITY_PREPROC_NAME,
                                                                  bucket_name: str = BUCKET_NAME):
+
     model_blob, preproc_garmin_data_blob, preproc_activity_blob = get_model_and_preprocessors_blobs_from_gcs(
         model_filename, preproc_garmin_data_filename, preproc_activity_filename, bucket_name)
+
+    if (model_blob is None) or (preproc_garmin_data_blob is None) or (preproc_activity_blob is None):
+        default_date = datetime(1970, 1, 1)
+        return default_date, default_date, default_date
 
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
@@ -414,6 +428,8 @@ def download_model_and_preprocessors_from_gcs(
 
     model_blob, preproc_garmin_data_blob, preproc_activity_blob = get_model_and_preprocessors_blobs_from_gcs(
         model_filename, preproc_garmin_data_filename, preproc_activity_filename, bucket_name)
+    if (model_blob is None) or (preproc_garmin_data_blob is None) or (preproc_activity_blob is None):
+        return
 
     model_blob.download_to_filename(join(
         model_path, model_filename))
