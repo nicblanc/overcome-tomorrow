@@ -21,7 +21,7 @@ push_image:
 	docker push $$GCP_REGION-docker.pkg.dev/$$GCP_PROJECT/$$GCP_REPOSITORY/$$IMAGE_NAME:prod
 
 deploy:
-	gcloud run deploy --image $$GCP_REGION-docker.pkg.dev/$$GCP_PROJECT/$$GCP_REPOSITORY/$$IMAGE_NAME:prod --memory $$GAR_MEMORY --region $$GCP_REGION --env-vars-file .env.yaml
+	gcloud run deploy  overcome-tomorrow --image $$GCP_REGION-docker.pkg.dev/$$GCP_PROJECT/$$GCP_REPOSITORY/$$IMAGE_NAME:prod --memory $$GAR_MEMORY --region $$GCP_REGION --env-vars-file .env.yaml
 
 build_and_deploy_image: build_prod_image create_gcp_repository push_image deploy
 
@@ -45,3 +45,6 @@ upload_model_and_preprocessors_to_gcs:
 
 downpload_model_and_preprocessors_from_gcs:
 	python -c 'from overcome_tomorrow.utils.data import download_model_and_preprocessors_from_gcs; download_model_and_preprocessors_from_gcs();'
+
+download_files_from_bq:
+	python -c 'from overcome_tomorrow.utils.data import save_csv_from_bq; save_csv_from_bq("test_activities.csv", "activities"); save_csv_from_bq("test_garmin_data.csv", "garmin_data")'
