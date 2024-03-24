@@ -336,43 +336,6 @@ def third_page():
         df = compare_activity_date(date)
 
     st.write(df.head())
-    # calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = (
-    #     0, "En attente", 0, 0, 0, 0, 0, (0, 0), datetime.min, datetime.min)
-
-    # if st.button("COMPARE 📊"):
-    #     # Nouvelles valeurs des variables
-    #     calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = predict_activity_date(
-    #         date)
-
-    # st.markdown(
-    #     f"<p style='text-align: left;color:#CAC0B3;'>Activity : {sport_date}</p>", unsafe_allow_html=True)
-
-    # col_graph1_bis, col_graph2_bis, col_info_bis = st.columns([3, 3, 2])
-
-    # with col_graph1_bis:
-    #     st.markdown(
-    #         f"<p style='text-align: left;color:#CAC0B3;'>Start time : {start_time_dt_date.time()} </p>", unsafe_allow_html=True)
-    #     st.markdown(
-    #         f"<p style='text-align: left;color:#CAC0B3;'>Finish time : {timestamp_dt_date.time()} </p>", unsafe_allow_html=True)
-    #     st.markdown(
-    #         f"<p style='text-align: left;color:#CAC0B3;'>Time : {duration_date[0]}h{duration_date[1]} </p>", unsafe_allow_html=True)
-
-    # with col_graph2_bis:
-    #     st.markdown(
-    #         f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance_date} km</p>", unsafe_allow_html=True)
-    #     st.markdown(
-    #         f"<p style='text-align: left;color:#CAC0B3;'>Average Speed : {avg_speed_date} km/h</p>", unsafe_allow_html=True)
-    #     st.markdown(
-    #         f"<p style='text-align: left;color:#CAC0B3;'>Max Speed : {max_speed_date} km/h</p>", unsafe_allow_html=True)
-
-    # with col_info_bis:
-    #     st.markdown(
-    #         f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate_date,0)}</p>", unsafe_allow_html=True)
-    #     st.markdown(
-    #         f"<p style='text-align: left;color:#CAC0B3;'>Avg Power: {avg_power_date} Watt</p>", unsafe_allow_html=True)
-    #     st.markdown(
-    #         f"<p style='text-align: left;color:#CAC0B3;'>Calories : {round(calories_date,2)} Kcal</p>", unsafe_allow_html=True)
-
 
 # Page - Data analysis
 
