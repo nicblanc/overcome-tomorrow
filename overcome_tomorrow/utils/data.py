@@ -6,7 +6,8 @@ from datetime import datetime
 from google.cloud import bigquery, storage
 from overcome_tomorrow.params import *
 
-from os.path import join
+from os import makedirs
+from os.path import join, exists
 
 ######################### LOADING FUNCTION ####################################
 
@@ -317,7 +318,9 @@ def upload_model_to_gcs(model_path: str = join(MODEL_PATH, MODEL_NAME),
                         bucket_name: str = BUCKET_NAME,
                         gcp_project: str = GCP_PROJECT,
                         location: str = GCP_REGION):
-    model_filename = pathlib.PurePath(model_path).name
+    pure_model_path = pathlib.PurePath(model_path)
+    model_filename = pure_model_path.name
+    model_name = pure_model_path.stem
     client = storage.Client()
     """ Create bucket if not exists """
     bucket = client.bucket(bucket_name)
@@ -326,12 +329,14 @@ def upload_model_to_gcs(model_path: str = join(MODEL_PATH, MODEL_NAME),
             bucket_name, project=gcp_project, location=location)
 
     """ Upload model file to blob """
-    blob = bucket.blob(f"models/{model_filename}")
+    blob = bucket.blob(f"{model_name}/{model_filename}")
     blob.upload_from_filename(model_path)
     print("✅ Model saved to GCS")
 
 
 def upload_preprocessors_to_gcs(preprocessors_path: str = MODEL_PATH,
+                                model_name: str = pathlib.PurePath(
+                                    MODEL_NAME).stem,
                                 bucket_name: str = BUCKET_NAME,
                                 gcp_project: str = GCP_PROJECT,
                                 location: str = GCP_REGION):
@@ -352,19 +357,16 @@ def upload_preprocessors_to_gcs(preprocessors_path: str = MODEL_PATH,
 
     """ Upload preprocessors files to blob """
     preproc_garmin_data_blob = bucket.blob(
-        f"models/{preproc_garmin_data_filename}")
+        f"{model_name}/{preproc_garmin_data_filename}")
     preproc_garmin_data_blob.upload_from_filename(preproc_garmin_data_path)
-    preproc_activity_blob = bucket.blob(f"models/{preproc_activity_filename}")
+    preproc_activity_blob = bucket.blob(
+        f"{model_name}/{preproc_activity_filename}")
     preproc_activity_blob.upload_from_filename(preproc_activity_path)
 
     print("✅ Preprocessors saved to GCS")
 
 
-def get_model_and_preprocessors_blobs_from_gcs(model_filename: str = MODEL_NAME,
-                                               preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
-                                               preproc_activity_filename: str = ACTIVITY_PREPROC_NAME,
-                                               bucket_name: str = BUCKET_NAME):
-
+def get_bucket(bucket_name: str = BUCKET_NAME):
     client = None
     try:
         client = storage.Client()
@@ -373,24 +375,46 @@ def get_model_and_preprocessors_blobs_from_gcs(model_filename: str = MODEL_NAME,
             f"\n⚠️ Cannot connect to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
         return None, None, None
 
-    bucket = client.get_bucket(bucket_name)
+    return client.get_bucket(bucket_name)
+
+
+def list_all_models_from_gcs(bucket_name: str = BUCKET_NAME):
+    models = set()
+    bucket = get_bucket(bucket_name)
+    if not bucket.exists():
+        print(f"\n❌ Bucket {bucket_name} not found")
+        return models
+    blobs = bucket.list_blobs()
+    for blob in blobs:
+        models.add(pathlib.PurePath(blob.name).parent.as_posix())
+    return models
+
+
+def get_model_and_preprocessors_blobs_from_gcs(model_filename: str = MODEL_NAME,
+                                               preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                               preproc_activity_filename: str = ACTIVITY_PREPROC_NAME,
+                                               bucket_name: str = BUCKET_NAME):
+    bucket = get_bucket(bucket_name)
     if not bucket.exists():
         print(f"\n❌ Bucket {bucket_name} not found")
         return None, None, None
 
+    model_name = pathlib.PurePath(model_filename).stem
     preproc_garmin_data_blob = bucket.blob(
-        f"models/{preproc_garmin_data_filename}")
-    preproc_activity_blob = bucket.blob(f"models/{preproc_activity_filename}")
-    model_blob = bucket.blob(f"models/{model_filename}")
+        f"{model_name}/{preproc_garmin_data_filename}")
+    preproc_activity_blob = bucket.blob(
+        f"{model_name}/{preproc_activity_filename}")
+    model_blob = bucket.blob(f"{model_name}/{model_filename}")
 
     if not preproc_garmin_data_blob.exists():
-        print(f"\n❌ Blob {preproc_garmin_data_filename} not found")
+        print(
+            f"\n❌ Blob {model_name}/{preproc_garmin_data_filename} not found")
         return None, None, None
     if not preproc_activity_blob.exists():
-        print(f"\n❌ Blob {preproc_activity_filename} not found")
+        print(f"\n❌ Blob {model_name}/{preproc_activity_filename} not found")
         return None, None, None
     if not model_blob.exists():
-        print(f"\n❌ Blob {model_filename} not found")
+        print(f"\n❌ Blob {model_name}/{model_filename} not found")
         return None, None, None
 
     return model_blob, preproc_garmin_data_blob, preproc_activity_blob
@@ -431,11 +455,19 @@ def download_model_and_preprocessors_from_gcs(
     if (model_blob is None) or (preproc_garmin_data_blob is None) or (preproc_activity_blob is None):
         return
 
-    model_blob.download_to_filename(join(
-        model_path, model_filename))
+    model_name = pathlib.PurePath(model_filename).stem
+    full_model_path = join(model_path, model_name)
+    if not exists(full_model_path):
+        makedirs(full_model_path)
+
+    full_preprocessors_path = join(preprocessors_path, model_name)
+    if not exists(full_preprocessors_path):
+        makedirs(full_preprocessors_path)
+
+    model_blob.download_to_filename(join(full_model_path, model_filename))
     print("✅ Latest model downloaded from cloud storage")
-    preproc_activity_blob.download_to_filename(join(
-        preprocessors_path, preproc_activity_filename))
-    preproc_garmin_data_blob.download_to_filename(join(
-        preprocessors_path, preproc_garmin_data_filename))
+    preproc_activity_blob.download_to_filename(
+        join(full_preprocessors_path, preproc_activity_filename))
+    preproc_garmin_data_blob.download_to_filename(
+        join(full_preprocessors_path, preproc_garmin_data_filename))
     print("✅ Latest preprocessors downloaded from cloud storage")

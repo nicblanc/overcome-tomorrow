@@ -3,7 +3,8 @@ import pandas as pd
 from overcome_tomorrow.utils.data import *
 from overcome_tomorrow.ml_logic.preprocess import *
 from overcome_tomorrow.params import *
-from os.path import isfile, join, exists
+from os import makedirs
+from os.path import join, exists
 from tqdm import tqdm
 from pickle import dump, load
 from datetime import datetime, timedelta
@@ -61,11 +62,12 @@ def create_sliding_windows_dataset(garmin_data, activities, preproc_garmin_data,
     X_train = []
     y_train = []
 
-    for i in tqdm(range(steps, activities.shape[0])):
+    for i in tqdm(range(steps, activities.shape[0]), desc="⌛ Creating Sliding Window dataset... ⌛"):
         activity = activities.iloc[[i]]
         activity_time = activity["start_time"][i].strftime('%Y-%m-%d %H:%M:%S')
         window_df = garmin_data[garmin_data["beginTimestamp"]
                                 < activity_time].iloc[i - steps:i]
+        # TODO find a way to preprocess everything only once and then create the sliding windows dataset
         X_train.append(preproc_garmin_data.transform(window_df))
         # TODO y_train.append(preproc_activity.transform(activity)[0])
         y_train.append(preproc_activity.transform(activity))
@@ -141,16 +143,27 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
     # TODO train test split + validation data
     model.fit(X_train, y_train, batch_size=32, epochs=epochs)
     model.summary()
-    full_model_path = join(model_path, model_filename)
+
+    model_name = pathlib.PurePath(model_filename).stem
+    full_model_path = join(model_path, model_name, model_filename)
+    model_parent = pathlib.PurePath(full_model_path).parent.as_posix()
+    if not exists(model_parent):
+        makedirs(model_parent)
+
+    full_preprocessors_path = join(preprocessors_path, model_name)
+    if not exists(full_preprocessors_path):
+        makedirs(full_preprocessors_path)
+
     model.save(full_model_path)
     dump(preproc_garmin_data, open(
-        join(preprocessors_path, preproc_garmin_data_filename), "wb"))
+        join(preprocessors_path, model_name, preproc_garmin_data_filename), "wb"))
     dump(preproc_activity, open(
-        join(preprocessors_path, preproc_activity_filename), "wb"))
+        join(preprocessors_path, model_name, preproc_activity_filename), "wb"))
 
     try:
         upload_model_to_gcs(model_path=full_model_path)
-        upload_preprocessors_to_gcs(preprocessors_path=preprocessors_path)
+        upload_preprocessors_to_gcs(
+            preprocessors_path=preprocessors_path, model_name=model_name)
     except Exception as e:
         print(
             f"\n⚠️ Cannot upload model/preprocessors to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
@@ -161,11 +174,12 @@ def load_preprocessors_and_model(model_path: str = MODEL_PATH,
                                  preprocessors_path: str = MODEL_PATH,
                                  preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
                                  preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+    model_name = pathlib.PurePath(model_filename).stem
     preproc_garmin_data = load(
-        open(join(preprocessors_path, preproc_garmin_data_filename), "rb"))
+        open(join(preprocessors_path, model_name, preproc_garmin_data_filename), "rb"))
     preproc_activity = load(
-        open(join(preprocessors_path, preproc_activity_filename), "rb"))
-    model = load_model(join(model_path, model_filename))
+        open(join(preprocessors_path, model_name, preproc_activity_filename), "rb"))
+    model = load_model(join(model_path, model_name, model_filename))
     return preproc_garmin_data, preproc_activity, model
 
 

@@ -66,11 +66,15 @@ DEFAULT_ACTIVITY = {
     "activity_id": "nicko64@hotmail.fr_213811102683"
 }
 
+models_dict = {
+
+}
 
 model_blob_updated, preproc_garmin_data_blob_updated, preproc_activity_blob_updated = get_last_modified_dates_for_model_and_preprocessors_from_gcs()
 download_model_and_preprocessors_from_gcs()
-
 preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model()
+
+
 garmin_data, activities = get_data()
 
 
@@ -98,7 +102,7 @@ schedule.every(1).minutes.do(check_model_preprocessors_updated)
 
 @tomorrow_app.get("/models", tags=["models"])
 def get_model_names():
-    return ["model1", "model2", "model3"]
+    return list_all_models_from_gcs()
 
 
 @tomorrow_app.get("/activities", tags=["activities"])
