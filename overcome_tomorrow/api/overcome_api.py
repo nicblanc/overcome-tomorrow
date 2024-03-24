@@ -65,36 +65,6 @@ DEFAULT_ACTIVITY = {
     "activity_id": "nicko64@hotmail.fr_213811102683"
 }
 
-
-# models = list_all_models_from_gcs()
-# for model_name, model_dict in models.items:
-#     model_blob_updated, preproc_garmin_data_blob_updated, preproc_activity_blob_updated = get_last_modified_dates_for_model_and_preprocessors_from_gcs(
-#         model_filename=model_dict[MODEL_FILENAME_KEY],
-#         preproc_garmin_data_filename=model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY],
-#         preproc_activity_filename=model_dict[PREPROC_ACTIVITY_FILENAME_KEY]
-#     )
-#     download_model_and_preprocessors_from_gcs(
-#         model_filename=model_dict[MODEL_FILENAME_KEY],
-#         preproc_garmin_data_filename=model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY],
-#         preproc_activity_filename=model_dict[PREPROC_ACTIVITY_FILENAME_KEY]
-#     )
-#     preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model(
-#         model_filename=model_dict[MODEL_FILENAME_KEY],
-#         preproc_garmin_data_filename=model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY],
-#         preproc_activity_filename=model_dict[PREPROC_ACTIVITY_FILENAME_KEY]
-#     )
-#     model_dict[MODEL_KEY] = model
-#     model_dict[PREPROC_GARMIN_DATA_KEY] = preproc_garmin_data
-#     model_dict[PREPROC_ACTIVITY_KEY] = preproc_activity
-
-#     model_dict[MODEL_BLOB_UPDATED_KEY] = model_blob_updated
-#     model_dict[PREPROC_GARMIN_DATA_BLOB_UPDATED_KEY] = preproc_garmin_data_blob_updated
-#     model_dict[PREPROC_ACTIVITY_BLOB_UPDATED_KEY] = preproc_activity_blob_updated
-
-# model_blob_updated, preproc_garmin_data_blob_updated, preproc_activity_blob_updated = get_last_modified_dates_for_model_and_preprocessors_from_gcs()
-# download_model_and_preprocessors_from_gcs()
-# preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model()
-
 models_dict = get_all_models()
 garmin_data, activities = get_data()
 
@@ -128,25 +98,6 @@ def check_models_updated():
             model_dict[MODEL_BLOB_UPDATED_KEY] = model_blob_updated_tmp
             model_dict[PREPROC_GARMIN_DATA_BLOB_UPDATED_KEY] = preproc_garmin_data_blob_updated_tmp
             model_dict[PREPROC_ACTIVITY_BLOB_UPDATED_KEY] = preproc_activity_blob_updated_tmp
-
-
-# def check_model_preprocessors_updated():
-#     print("⌛ Checking if model and preprocessors are up to date")
-#     global model_blob_updated
-#     global preproc_garmin_data_blob_updated
-#     global preproc_activity_blob_updated
-
-#     global preproc_garmin_data
-#     global preproc_activity
-#     global model
-
-#     model_blob_updated_tmp, preproc_garmin_data_blob_updated_tmp, preproc_activity_blob_updated_tmp = get_last_modified_dates_for_model_and_preprocessors_from_gcs()
-#     if (model_blob_updated_tmp > model_blob_updated) or (preproc_garmin_data_blob_updated_tmp > preproc_garmin_data_blob_updated) or (preproc_activity_blob_updated_tmp > preproc_activity_blob_updated):
-#         download_model_and_preprocessors_from_gcs()
-#         model_blob_updated = model_blob_updated_tmp
-#         preproc_garmin_data_blob_updated = preproc_garmin_data_blob_updated_tmp
-#         preproc_activity_blob_updated = preproc_activity_blob_updated_tmp
-#         preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model()
 
 
 schedule.every(1).minutes.do(check_models_updated)

@@ -28,7 +28,6 @@ DTYPES_ACTIVITIES_RAW = {
 
 ##################  CONSTANTS  #####################
 
-DEFAULT_MODEL = "DEFAULT_MODEL"
 
 MODEL_FILENAME_KEY = "model_filename"
 PREPROC_GARMIN_DATA_FILENAME_KEY = "preproc_garmin_data_filename"

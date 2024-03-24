@@ -6,7 +6,7 @@ from overcome_tomorrow.params import *
 from os import makedirs
 from os.path import join, exists
 from tqdm import tqdm
-from pickle import dump, load
+from pickle import dump
 from datetime import datetime, timedelta
 
 from tensorflow.keras.models import Sequential
