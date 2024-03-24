@@ -7,11 +7,13 @@ from datetime import datetime
 import json
 import dateutil.parser
 from PIL import Image
+from io import StringIO
 import os
 
 BACKEND_URL = os.environ["BACKEND_URL"]
 
 model_names = requests.get(f'{BACKEND_URL}/models').json()
+model_name = model_names[0]
 
 st.set_page_config(layout="wide")
 # CSS pour changer le fond de l'application / le design des boutons
@@ -67,15 +69,23 @@ def display_activities_sum_true():
 
 def predict_next_activity():
     next_activity = json.loads(requests.get(
-        f'{BACKEND_URL}/activities/next', params={"models_name": model_names[0]}).json()[0])
+        f'{BACKEND_URL}/activities/next', params={"models_name": model_name}).json()[0])
     print(next_activity)
     return extract_activity_from_json(next_activity)
 
 
 def predict_activity_date(date):
     date_activity = json.loads(requests.get(
-        f'{BACKEND_URL}/activities/date?date={date}', params={"model_name": model_names[0]}).json())
+        f'{BACKEND_URL}/activities/date?date={date}', params={"model_name": model_name}).json())
     return extract_activity_from_json(date_activity)
+
+
+def compare_activity_date(date):
+    res = requests.get(
+        f'{BACKEND_URL}/activities/date/compare', params={"model_name": model_name, "date": date}).json()
+    print(res)
+    df = pd.read_json(StringIO(res))
+    return df
 
 
 def display_activities_sum_false():
@@ -222,6 +232,8 @@ def second_page():
     # Initialisation des variables pour que l'affichage démmarre à 0
     calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = (
         0, "En attente", 0, 0, 0, 0, 0, (0, 0), datetime.min, datetime.min)
+    global model_name
+    model_name = st.selectbox('Select a model to use', model_names)
 
     if st.button("EVALUATE 📈"):
         # Nouvelles valeurs des variables
@@ -300,11 +312,72 @@ def second_page():
         st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;'>Calories : {round(calories_date,2)} Kcal</p>", unsafe_allow_html=True)
 
+# Page - Compare: Predict vs Real
+
+
+def third_page():
+    # Accueil de la page Compare
+
+    st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Let's compare 🆚</h1>",
+                unsafe_allow_html=True)
+
+    st.markdown("<h4 style='text-align: left; color: #FF595A;'>Compare with a given date :</h1>",
+                unsafe_allow_html=True)
+    st.markdown("""<p style='text-align: left;color:#CAC0B3;'>Here you can predict an activity with a given date which is
+                based on the last 60 activities before this date. You can compare this prediction with your actual performance this day : </p>""",
+                unsafe_allow_html=True)
+
+    global model_name
+    model_name = st.selectbox('Select a model to use', model_names)
+
+    date = st.date_input("Choose your date 📅")
+    df = pd.DataFrame()
+    if st.button("COMPARE 📊"):
+        df = compare_activity_date(date)
+
+    st.write(df.head())
+    # calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = (
+    #     0, "En attente", 0, 0, 0, 0, 0, (0, 0), datetime.min, datetime.min)
+
+    # if st.button("COMPARE 📊"):
+    #     # Nouvelles valeurs des variables
+    #     calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = predict_activity_date(
+    #         date)
+
+    # st.markdown(
+    #     f"<p style='text-align: left;color:#CAC0B3;'>Activity : {sport_date}</p>", unsafe_allow_html=True)
+
+    # col_graph1_bis, col_graph2_bis, col_info_bis = st.columns([3, 3, 2])
+
+    # with col_graph1_bis:
+    #     st.markdown(
+    #         f"<p style='text-align: left;color:#CAC0B3;'>Start time : {start_time_dt_date.time()} </p>", unsafe_allow_html=True)
+    #     st.markdown(
+    #         f"<p style='text-align: left;color:#CAC0B3;'>Finish time : {timestamp_dt_date.time()} </p>", unsafe_allow_html=True)
+    #     st.markdown(
+    #         f"<p style='text-align: left;color:#CAC0B3;'>Time : {duration_date[0]}h{duration_date[1]} </p>", unsafe_allow_html=True)
+
+    # with col_graph2_bis:
+    #     st.markdown(
+    #         f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance_date} km</p>", unsafe_allow_html=True)
+    #     st.markdown(
+    #         f"<p style='text-align: left;color:#CAC0B3;'>Average Speed : {avg_speed_date} km/h</p>", unsafe_allow_html=True)
+    #     st.markdown(
+    #         f"<p style='text-align: left;color:#CAC0B3;'>Max Speed : {max_speed_date} km/h</p>", unsafe_allow_html=True)
+
+    # with col_info_bis:
+    #     st.markdown(
+    #         f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate_date,0)}</p>", unsafe_allow_html=True)
+    #     st.markdown(
+    #         f"<p style='text-align: left;color:#CAC0B3;'>Avg Power: {avg_power_date} Watt</p>", unsafe_allow_html=True)
+    #     st.markdown(
+    #         f"<p style='text-align: left;color:#CAC0B3;'>Calories : {round(calories_date,2)} Kcal</p>", unsafe_allow_html=True)
+
 
 # Page - Data analysis
 
 
-def third_page():
+def fourth_page():
     st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Data Analysis</h1>",
                 unsafe_allow_html=True)
     st.markdown("<p style='text-align: left;color:#CAC0B3;'>Here you can look at some datas</p>",
@@ -322,8 +395,10 @@ with st.sidebar:
         st.session_state['current_page'] = 'home'
     if st.button('Begin your journey 🏔️'):
         st.session_state['current_page'] = 'second'
-    if st.button('Data analysis 📊'):
+    if st.button('Compate predict VS real 🔎'):
         st.session_state['current_page'] = 'third'
+    if st.button('Data analysis 📊'):
+        st.session_state['current_page'] = 'fourth'
 
 if st.session_state['current_page'] == 'home':
     home_page()
@@ -331,3 +406,5 @@ elif st.session_state['current_page'] == 'second':
     second_page()
 elif st.session_state['current_page'] == 'third':
     third_page()
+elif st.session_state['current_page'] == 'fourth':
+    fourth_page()

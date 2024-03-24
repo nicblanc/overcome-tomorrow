@@ -138,10 +138,10 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
         garmin_data, activities, preproc_garmin_data, preproc_activity)
 
     # Create model
-    epochs = 100
+    epochs = 200
     model = create_model(X_train, y_train)
     # TODO train test split + validation data
-    model.fit(X_train, y_train, batch_size=32, epochs=epochs)
+    model.fit(X_train, y_train, batch_size=16, epochs=epochs)
     model.summary()
 
     model_name = pathlib.PurePath(model_filename).stem
