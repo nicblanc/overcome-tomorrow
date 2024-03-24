@@ -9,7 +9,7 @@ from tqdm import tqdm
 from pickle import dump, load
 from datetime import datetime, timedelta
 
-from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, Dropout, Activation
 from tensorflow.keras import Model, Sequential, layers, regularizers, optimizers
 from tensorflow.keras.callbacks import EarlyStopping
@@ -167,20 +167,6 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
     except Exception as e:
         print(
             f"\n⚠️ Cannot upload model/preprocessors to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
-
-
-def load_preprocessors_and_model(model_path: str = MODEL_PATH,
-                                 model_filename: str = MODEL_NAME,
-                                 preprocessors_path: str = MODEL_PATH,
-                                 preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
-                                 preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
-    model_name = pathlib.PurePath(model_filename).stem
-    preproc_garmin_data = load(
-        open(join(preprocessors_path, model_name, preproc_garmin_data_filename), "rb"))
-    preproc_activity = load(
-        open(join(preprocessors_path, model_name, preproc_activity_filename), "rb"))
-    model = load_model(join(model_path, model_name, model_filename))
-    return preproc_garmin_data, preproc_activity, model
 
 
 def predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, date=datetime.now()):

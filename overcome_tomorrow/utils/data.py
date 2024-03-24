@@ -6,9 +6,11 @@ from collections import defaultdict
 from datetime import datetime
 from google.cloud import bigquery, storage
 from overcome_tomorrow.params import *
-
+from pickle import load
 from os import makedirs
 from os.path import join, exists
+
+from tensorflow.keras.models import load_model
 
 ######################### LOADING FUNCTION ####################################
 
@@ -390,12 +392,12 @@ def list_all_models_from_gcs(bucket_name: str = BUCKET_NAME):
         blob_path = pathlib.PurePath(blob.name)
         model = models[blob_path.parent.as_posix()]
         if blob_path.stem == blob_path.parent.as_posix():
-            model["model_filename"] = blob_path.name
-        # TODO Fix preproc filename check
+            model[MODEL_FILENAME_KEY] = blob_path.name
+        # TODO Fix preproc filename check, currently it's hardcoded
         elif "preproc_garmin_data" in blob_path.stem:
-            model["preproc_garmin_data_filename"] = blob_path.name
+            model[PREPROC_GARMIN_DATA_FILENAME_KEY] = blob_path.name
         elif "preproc_activity" in blob_path.stem:
-            model["preproc_activity_filename"] = blob_path.name
+            model[PREPROC_ACTIVITY_FILENAME_KEY] = blob_path.name
     # Filter incomplete models
     return {k: v for k, v in models.items() if len(v) == 3}
 
@@ -481,3 +483,45 @@ def download_model_and_preprocessors_from_gcs(
     preproc_garmin_data_blob.download_to_filename(
         join(full_preprocessors_path, preproc_garmin_data_filename))
     print("✅ Latest preprocessors downloaded from cloud storage")
+
+
+def load_preprocessors_and_model(model_path: str = MODEL_PATH,
+                                 model_filename: str = MODEL_NAME,
+                                 preprocessors_path: str = MODEL_PATH,
+                                 preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                 preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+    model_name = pathlib.PurePath(model_filename).stem
+    preproc_garmin_data = load(
+        open(join(preprocessors_path, model_name, preproc_garmin_data_filename), "rb"))
+    preproc_activity = load(
+        open(join(preprocessors_path, model_name, preproc_activity_filename), "rb"))
+    model = load_model(join(model_path, model_name, model_filename))
+    return preproc_garmin_data, preproc_activity, model
+
+
+def get_all_models():
+    models = list_all_models_from_gcs()
+    for model_dict in models.values():
+        model_blob_updated, preproc_garmin_data_blob_updated, preproc_activity_blob_updated = get_last_modified_dates_for_model_and_preprocessors_from_gcs(
+            model_filename=model_dict[MODEL_FILENAME_KEY],
+            preproc_garmin_data_filename=model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY],
+            preproc_activity_filename=model_dict[PREPROC_ACTIVITY_FILENAME_KEY]
+        )
+        download_model_and_preprocessors_from_gcs(
+            model_filename=model_dict[MODEL_FILENAME_KEY],
+            preproc_garmin_data_filename=model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY],
+            preproc_activity_filename=model_dict[PREPROC_ACTIVITY_FILENAME_KEY]
+        )
+        preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model(
+            model_filename=model_dict[MODEL_FILENAME_KEY],
+            preproc_garmin_data_filename=model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY],
+            preproc_activity_filename=model_dict[PREPROC_ACTIVITY_FILENAME_KEY]
+        )
+        model_dict[MODEL_KEY] = model
+        model_dict[PREPROC_GARMIN_DATA_KEY] = preproc_garmin_data
+        model_dict[PREPROC_ACTIVITY_KEY] = preproc_activity
+
+        model_dict[MODEL_BLOB_UPDATED_KEY] = model_blob_updated
+        model_dict[PREPROC_GARMIN_DATA_BLOB_UPDATED_KEY] = preproc_garmin_data_blob_updated
+        model_dict[PREPROC_ACTIVITY_BLOB_UPDATED_KEY] = preproc_activity_blob_updated
+    return models
