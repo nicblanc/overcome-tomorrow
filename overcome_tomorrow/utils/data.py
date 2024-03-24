@@ -2,6 +2,7 @@ import pandas as pd
 import pathlib
 import os
 
+from collections import defaultdict
 from datetime import datetime
 from google.cloud import bigquery, storage
 from overcome_tomorrow.params import *
@@ -379,15 +380,24 @@ def get_bucket(bucket_name: str = BUCKET_NAME):
 
 
 def list_all_models_from_gcs(bucket_name: str = BUCKET_NAME):
-    models = set()
+    models = defaultdict(dict)
     bucket = get_bucket(bucket_name)
     if not bucket.exists():
         print(f"\n❌ Bucket {bucket_name} not found")
         return models
     blobs = bucket.list_blobs()
     for blob in blobs:
-        models.add(pathlib.PurePath(blob.name).parent.as_posix())
-    return models
+        blob_path = pathlib.PurePath(blob.name)
+        model = models[blob_path.parent.as_posix()]
+        if blob_path.stem == blob_path.parent.as_posix():
+            model["model_filename"] = blob_path.name
+        # TODO Fix preproc filename check
+        elif "preproc_garmin_data" in blob_path.stem:
+            model["preproc_garmin_data_filename"] = blob_path.name
+        elif "preproc_activity" in blob_path.stem:
+            model["preproc_activity_filename"] = blob_path.name
+    # Filter incomplete models
+    return {k: v for k, v in models.items() if len(v) == 3}
 
 
 def get_model_and_preprocessors_blobs_from_gcs(model_filename: str = MODEL_NAME,
