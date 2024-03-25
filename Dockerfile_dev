@@ -1,0 +1,24 @@
+FROM python:3.10.6
+
+ARG data_path
+ARG model_path
+ARG model_name
+ARG activity_preproc_name
+ARG garmin_data_preproc_name
+
+COPY overcome_tomorrow /overcome_tomorrow
+COPY requirements.txt requirements.txt
+COPY Makefile Makefile
+COPY setup.py setup.py
+
+RUN pip install --upgrade pip
+RUN pip install -e .
+RUN mkdir -p /$model_path
+RUN mkdir -p /$data_path
+COPY $data_path/activities.csv /$data_path/activities.csv
+COPY $data_path/garmin_data.csv /$data_path/garmin_data.csv
+COPY $model_path/$model_name /$model_path/$model_name
+COPY $model_path/$garmin_data_preproc_name /$model_path/$garmin_data_preproc_name
+COPY $model_path/$activity_preproc_name /$model_path/$activity_preproc_name
+
+CMD uvicorn --host 0.0.0.0 --port $PORT overcome_tomorrow.api.overcome_api:tomorrow_app
