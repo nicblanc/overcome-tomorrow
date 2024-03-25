@@ -26,7 +26,7 @@ deploy:
 build_and_deploy_image: build_prod_image create_gcp_repository push_image deploy
 
 streamlit:
-	streamlit run overcome_tomorrow/api/frontend_file.py
+	streamlit run overcome_tomorrow/api/frontend_file.py &
 
 run_api:
 	uvicorn --host 0.0.0.0 --port $$PORT overcome_tomorrow.api.overcome_api:tomorrow_app --reload &
