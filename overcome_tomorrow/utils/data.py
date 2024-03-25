@@ -337,7 +337,7 @@ def upload_model_to_gcs(model_path: str = join(MODEL_PATH, MODEL_NAME),
     print("✅ Model saved to GCS")
 
 
-def upload_preprocessors_to_gcs(preprocessors_path: str = join(MODEL_PATH, MODEL_NAME),
+def upload_preprocessors_to_gcs(preprocessors_path: str = MODEL_PATH,
                                 model_name: str = pathlib.PurePath(
                                     MODEL_NAME).stem,
                                 bucket_name: str = BUCKET_NAME,
