@@ -7,9 +7,13 @@ from datetime import datetime
 import json
 import dateutil.parser
 from PIL import Image
+from io import StringIO
+from utils_api.data_visualization_functions import *
 import os
 
 BACKEND_URL = os.environ["BACKEND_URL"]
+model_names = requests.get(f'{BACKEND_URL}/models').json()
+model_name = model_names[0]
 
 st.set_page_config(layout="wide")
 # CSS pour changer le fond de l'application / le design des boutons
@@ -52,9 +56,9 @@ def extract_activity_from_json(json_response):
     # Extraction des heures et minutes
     hours = diff.seconds // 3600
     minutes = (diff.seconds % 3600) // 60
-    time = (hours, minutes)
+    duration = (hours, minutes)
     # st.write(f'test : {response}')
-    return calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, time
+    return calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt
 
 
 def display_activities_sum_true():
@@ -65,15 +69,23 @@ def display_activities_sum_true():
 
 def predict_next_activity():
     next_activity = json.loads(requests.get(
-        f'{BACKEND_URL}/activities/next').json()[0])
+        f'{BACKEND_URL}/activities/next', params={"models_name": model_name}).json()[0])
     print(next_activity)
     return extract_activity_from_json(next_activity)
 
 
 def predict_activity_date(date):
     date_activity = json.loads(requests.get(
-        f'{BACKEND_URL}/activities/date?date={date}').json())
+        f'{BACKEND_URL}/activities/date?date={date}', params={"model_name": model_name}).json())
     return extract_activity_from_json(date_activity)
+
+
+def compare_activity_date(date):
+    res = requests.get(
+        f'{BACKEND_URL}/activities/date/compare', params={"model_name": model_name, "date": date}).json()
+    print(res)
+    df = pd.read_json(StringIO(res))
+    return df
 
 
 def display_activities_sum_false():
@@ -105,7 +117,7 @@ def home_page():
                 unsafe_allow_html=True)
 
     # On récupère les données qu'on veut grâce à la fonction diplay activities summarized egale True et false
-    calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, time = display_activities_sum_true()
+    calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = display_activities_sum_true()
     data_power, data_stamina, data_speed, data_heart_rate = display_activities_sum_false()
     st.markdown(
         f"<p style='text-align: left;color:#CAC0B3;'>Activity : {sport}</p>", unsafe_allow_html=True)
@@ -114,11 +126,15 @@ def home_page():
     col_info1, col_info2, col_info3 = st.columns([3, 3, 2])
     with col_info1:
         st.markdown(
-            f"<p style='text-align: left;color:#CAC0B3;font-size:16px;'>Distance : {distance} km</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:#CAC0B3;'>Start time : {start_time_dt} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:#CAC0B3;font-size:16px;'>Time : {time[0]}h{time[1]}</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:#CAC0B3;'>Finish time : {timestamp_dt} </p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;font-size:16px;'>Time : {duration[0]}h{duration[1]}</p>", unsafe_allow_html=True)
 
     with col_info2:
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;font-size:16px;'>Distance : {distance} km</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;font-size:16px;'>Average Speed : {avg_speed} km/h</p>", unsafe_allow_html=True)
         st.markdown(
@@ -126,9 +142,9 @@ def home_page():
 
     with col_info3:
         st.markdown(
-            f"<p style='text-align: left;color:#CAC0B3;font-size:16px;'>Avg Power : {avg_power} Watt</p>", unsafe_allow_html=True)
-        st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;font-size:16px;'>Avg Heart Rate : {avg_heart_rate} bpm</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;font-size:16px;'>Avg Power : {avg_power} Watt</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;font-size:16px;'>Calories : {calories} kcal</p>", unsafe_allow_html=True)
 
@@ -169,7 +185,7 @@ def home_page():
 
     st.markdown("<h4 style='text-align: left; color: #FF595A;'>How it works</h1>",
                 unsafe_allow_html=True)
-    image = Image.open('raw_data/How_it_works.png')
+    image = Image.open('overcome_tomorrow/api/static_data/How_it_works.png')
     st.image(image, caption='How it works', use_column_width=False)
 
     with col_graph3:
@@ -214,12 +230,14 @@ def second_page():
                 unsafe_allow_html=True)
 
     # Initialisation des variables pour que l'affichage démmarre à 0
-    calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, time = (
-        0, "En attente", 0, 0, 0, 0, 0, (0, 0))
+    calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = (
+        0, "En attente", 0, 0, 0, 0, 0, (0, 0), datetime.min, datetime.min)
+    global model_name
+    model_name = st.selectbox('Select a model to use', model_names)
 
     if st.button("EVALUATE 📈"):
         # Nouvelles valeurs des variables
-        calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, time = predict_next_activity()
+        calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = predict_next_activity()
 
     st.markdown(
         f"<p style='text-align: left;color:#CAC0B3;'>Activity : {sport}</p>", unsafe_allow_html=True)
@@ -228,19 +246,23 @@ def second_page():
 
     with col_graph1:
         st.markdown(
-            f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance} km</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:#CAC0B3;'>Start time : {start_time_dt.time()} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:#CAC0B3;'>Time : {time[0]}h{time[1]} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:#CAC0B3;'>Finish time : {timestamp_dt.time()} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate,0)}</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:#CAC0B3;'>Time : {duration[0]}h{duration[1]} </p>", unsafe_allow_html=True)
 
     with col_graph2:
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance} km</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;'>Average Speed : {avg_speed} km/h</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;'>Max Speed : {max_speed} km/h</p>", unsafe_allow_html=True)
 
     with col_info:
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate,0)}</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;'>Avg Power: {avg_power} Watt</p>", unsafe_allow_html=True)
         st.markdown(
@@ -253,25 +275,30 @@ def second_page():
                 unsafe_allow_html=True)
     date = st.date_input(
         "Choose your date 📅")
-    calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, time_date = (
-        0, "En attente", 0, 0, 0, 0, 0, (0, 0))
+    calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = (
+        0, "En attente", 0, 0, 0, 0, 0, (0, 0), datetime.min, datetime.min)
 
     if st.button("EVALUATE 📊"):
         # Nouvelles valeurs des variables
-        calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, time_date = predict_activity_date(
+        calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = predict_activity_date(
             date)
+
+    st.markdown(
+        f"<p style='text-align: left;color:#CAC0B3;'>Activity : {sport_date}</p>", unsafe_allow_html=True)
 
     col_graph1_bis, col_graph2_bis, col_info_bis = st.columns([3, 3, 2])
 
     with col_graph1_bis:
         st.markdown(
-            f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance_date} km</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:#CAC0B3;'>Start time : {start_time_dt_date.time()} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:#CAC0B3;'>Time : {time_date[0]}h{time_date[1]} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:#CAC0B3;'>Finish time : {timestamp_dt_date.time()} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate,0)}</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:#CAC0B3;'>Time : {duration_date[0]}h{duration_date[1]} </p>", unsafe_allow_html=True)
 
     with col_graph2_bis:
+        st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Distance :  {distance_date} km</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;'>Average Speed : {avg_speed_date} km/h</p>", unsafe_allow_html=True)
         st.markdown(
@@ -279,22 +306,98 @@ def second_page():
 
     with col_info_bis:
         st.markdown(
+            f"<p style='text-align: left;color:#CAC0B3;'>Avg Heart Rate : {round(avg_heart_rate_date,0)}</p>", unsafe_allow_html=True)
+        st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;'>Avg Power: {avg_power_date} Watt</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:#CAC0B3;'>Calories : {round(calories_date,2)} Kcal</p>", unsafe_allow_html=True)
 
-
-# Page - Data analysis
+# Page - Compare: Predict vs Real
 
 
 def third_page():
-    st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Data Analysis</h1>",
-                unsafe_allow_html=True)
-    st.markdown("<p style='text-align: left;color:#CAC0B3;'>Here you can look at some datas</p>",
-                unsafe_allow_html=True)
-    st.write("(Add some charts about data analysis)")
+    # Accueil de la page Compare
 
+    st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Let's compare 🆚</h1>",
+                unsafe_allow_html=True)
 
+    st.markdown("<h4 style='text-align: left; color: #FF595A;'>Compare with a given date :</h1>",
+                unsafe_allow_html=True)
+    st.markdown("""<p style='text-align: left;color:#CAC0B3;'>Here you can predict an activity with a given date which is
+                based on the last 60 activities before this date. You can compare this prediction with your actual performance this day : </p>""",
+                unsafe_allow_html=True)
+
+    global model_name
+    model_name = st.selectbox('Select a model to use', model_names)
+
+    date = st.date_input("Choose your date 📅")
+    df = pd.DataFrame()
+    if st.button("COMPARE 📊"):
+        df = compare_activity_date(date)
+
+    st.write(df.head())
+
+# Page - Data analysis
+
+def fourth_page():
+    st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Data Analysis</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: left;color:#CAC0B3;'>Here you can look at some data</p>", unsafe_allow_html=True)
+    
+    data = pd.read_csv("raw_data/activities.csv")
+
+    # Define a common text color for titles
+    text_color = "#FFF000"  # Example: Bright red, adjust as needed
+
+    # Using columns to display two graphs per line and using markdown for colored titles
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"<h3 style='color: {text_color};'>Activities per Month</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_activities_per_month(data))
+    with col2:
+        st.markdown(f"<h3 style='color: {text_color};'>Sport Distribution</h3>", unsafe_allow_html=True)
+        st.pyplot(visualize_sport_distribution(data))
+        
+    col3, col4 = st.columns(2)
+    with col3:
+        st.markdown(f"<h3 style='color: {text_color};'>Monthly Distance Over Years</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_monthly_distance_over_years(data))
+    with col4:
+        st.markdown(f"<h3 style='color: {text_color};'>Cadence VS Speed</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_scatter_average_cadence_vs_speed(data))
+
+    col5, col6 = st.columns(2)
+    with col5:
+        st.markdown(f"<h3 style='color: {text_color};'>Average Speed Over Time</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_average_speed_over_time(data))
+    with col6:
+        st.markdown(f"<h3 style='color: {text_color};'>Monthly Calorie and Distance</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_monthly_calorie_and_distance(data))
+
+    # Input widgets for graphs requiring specific parameters, with titles also in color
+    st.markdown(f"<h3 style='color: {text_color};'>Monthly Distance for a Specific Year and Month</h3>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        year = st.number_input("Enter the year", value=2023, step=1, min_value=2019, max_value=2024)
+    with col2:
+        months = ["January", "February", "March", "April", "May", "June", 
+                  "July", "August", "September", "October", "November", "December"]
+        month_ = st.selectbox("Select the month", options=months, index=0)
+        month = months.index(month_) + 1
+    st.pyplot(plot_monthly_distance(year, month, data))
+
+    st.markdown(f"<h3 style='color: {text_color};'>Analysis of Last Activities for a Specific Sport</h3>", unsafe_allow_html=True)   
+    col1, col2 = st.columns(2)
+    with col1:
+
+        num_days = st.number_input("Enter the number of days", min_value=1, max_value=100, value=20)
+    with col2:
+        # Use st.selectbox for sport type selection with titles in color
+        sport_type_options = ["running", "cycling", "walking", "training", "swimming"]
+        sport_type = st.selectbox("Select the sport type", options=sport_type_options)
+
+    st.pyplot(analyze_last_activities(data, num_days, sport_type))
+
+    
 # Navigation
 if 'current_page' not in st.session_state:
     st.session_state['current_page'] = 'home'
@@ -305,8 +408,10 @@ with st.sidebar:
         st.session_state['current_page'] = 'home'
     if st.button('Begin your journey 🏔️'):
         st.session_state['current_page'] = 'second'
-    if st.button('Data analysis 📊'):
+    if st.button('Compate predict VS real 🔎'):
         st.session_state['current_page'] = 'third'
+    if st.button('Data analysis 📊'):
+        st.session_state['current_page'] = 'fourth'
 
 if st.session_state['current_page'] == 'home':
     home_page()
@@ -314,3 +419,5 @@ elif st.session_state['current_page'] == 'second':
     second_page()
 elif st.session_state['current_page'] == 'third':
     third_page()
+elif st.session_state['current_page'] == 'fourth':
+    fourth_page()

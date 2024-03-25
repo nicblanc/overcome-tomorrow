@@ -2,9 +2,15 @@ import pandas as pd
 import pathlib
 import os
 
+from collections import defaultdict
+from datetime import datetime
 from google.cloud import bigquery, storage
 from overcome_tomorrow.params import *
-from os.path import join
+from pickle import load
+from os import makedirs
+from os.path import join, exists
+
+from tensorflow.keras.models import load_model
 
 ######################### LOADING FUNCTION ####################################
 
@@ -285,7 +291,7 @@ def load_csv_from_bq(types,
                      gcp_project: str = GCP_PROJECT,
                      bq_dataset: str = BQ_DATASET):
 
-    print(f"⌛ Loading {table} data from BigQuery server... ⌛ ")
+    print(f"\n⌛ Loading {table} data from BigQuery server... ⌛ ")
 
     query = f"""
         SELECT *
@@ -315,28 +321,32 @@ def upload_model_to_gcs(model_path: str = join(MODEL_PATH, MODEL_NAME),
                         bucket_name: str = BUCKET_NAME,
                         gcp_project: str = GCP_PROJECT,
                         location: str = GCP_REGION):
-    model_filename = pathlib.PurePath(model_path).name
+    pure_model_path = pathlib.PurePath(model_path)
+    model_filename = pure_model_path.name
+    model_name = pure_model_path.stem
     client = storage.Client()
     """ Create bucket if not exists """
     bucket = client.bucket(bucket_name)
-    if not bucket.exists():
+    if (bucket is None) or (not bucket.exists()):
         bucket = client.create_bucket(
             bucket_name, project=gcp_project, location=location)
 
     """ Upload model file to blob """
-    blob = bucket.blob(f"models/{model_filename}")
+    blob = bucket.blob(f"{model_name}/{model_filename}")
     blob.upload_from_filename(model_path)
     print("✅ Model saved to GCS")
 
 
 def upload_preprocessors_to_gcs(preprocessors_path: str = MODEL_PATH,
+                                model_name: str = pathlib.PurePath(
+                                    MODEL_NAME).stem,
                                 bucket_name: str = BUCKET_NAME,
                                 gcp_project: str = GCP_PROJECT,
                                 location: str = GCP_REGION):
     client = storage.Client()
     bucket = client.bucket(BUCKET_NAME)
     """ Create bucket if not exists """
-    if not bucket.exists():
+    if (bucket is None) or (not bucket.exists()):
         bucket = client.create_bucket(
             bucket_name, project=gcp_project, location=location)
 
@@ -350,39 +360,72 @@ def upload_preprocessors_to_gcs(preprocessors_path: str = MODEL_PATH,
 
     """ Upload preprocessors files to blob """
     preproc_garmin_data_blob = bucket.blob(
-        f"models/{preproc_garmin_data_filename}")
+        f"{model_name}/{preproc_garmin_data_filename}")
     preproc_garmin_data_blob.upload_from_filename(preproc_garmin_data_path)
-    preproc_activity_blob = bucket.blob(f"models/{preproc_activity_filename}")
+    preproc_activity_blob = bucket.blob(
+        f"{model_name}/{preproc_activity_filename}")
     preproc_activity_blob.upload_from_filename(preproc_activity_path)
 
     print("✅ Preprocessors saved to GCS")
+
+
+def get_bucket(bucket_name: str = BUCKET_NAME):
+    try:
+        client = storage.Client()
+        return client.get_bucket(bucket_name)
+    except Exception as e:
+        print(
+            f"\n⚠️ Cannot connect to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
+        return None
+
+
+def list_all_models_from_gcs(bucket_name: str = BUCKET_NAME):
+    models = defaultdict(dict)
+    bucket = get_bucket(bucket_name)
+    if (bucket is None) or (not bucket.exists()):
+        print(f"\n❌ Bucket {bucket_name} not found")
+        return models
+    blobs = bucket.list_blobs()
+    for blob in blobs:
+        blob_path = pathlib.PurePath(blob.name)
+        model = models[blob_path.parent.as_posix()]
+        if blob_path.stem == blob_path.parent.as_posix():
+            model[MODEL_FILENAME_KEY] = blob_path.name
+        # TODO Fix preproc filename check, currently it's hardcoded
+        elif "preproc_garmin_data" in blob_path.stem:
+            model[PREPROC_GARMIN_DATA_FILENAME_KEY] = blob_path.name
+        elif "preproc_activity" in blob_path.stem:
+            model[PREPROC_ACTIVITY_FILENAME_KEY] = blob_path.name
+    # Filter incomplete models
+    return {k: v for k, v in models.items() if len(v) == 3}
 
 
 def get_model_and_preprocessors_blobs_from_gcs(model_filename: str = MODEL_NAME,
                                                preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
                                                preproc_activity_filename: str = ACTIVITY_PREPROC_NAME,
                                                bucket_name: str = BUCKET_NAME):
-
-    client = storage.Client()
-    bucket = client.get_bucket(bucket_name)
-    if not bucket.exists():
+    bucket = get_bucket(bucket_name)
+    if (bucket is None) or (not bucket.exists()):
         print(f"\n❌ Bucket {bucket_name} not found")
-        return None
+        return None, None, None
 
+    model_name = pathlib.PurePath(model_filename).stem
     preproc_garmin_data_blob = bucket.blob(
-        f"models/{preproc_garmin_data_filename}")
-    preproc_activity_blob = bucket.blob(f"models/{preproc_activity_filename}")
-    model_blob = bucket.blob(f"models/{model_filename}")
+        f"{model_name}/{preproc_garmin_data_filename}")
+    preproc_activity_blob = bucket.blob(
+        f"{model_name}/{preproc_activity_filename}")
+    model_blob = bucket.blob(f"{model_name}/{model_filename}")
 
     if not preproc_garmin_data_blob.exists():
-        print(f"\n❌ Blob {preproc_garmin_data_filename} not found")
-        return None
+        print(
+            f"\n❌ Blob {model_name}/{preproc_garmin_data_filename} not found")
+        return None, None, None
     if not preproc_activity_blob.exists():
-        print(f"\n❌ Blob {preproc_activity_filename} not found")
-        return None
+        print(f"\n❌ Blob {model_name}/{preproc_activity_filename} not found")
+        return None, None, None
     if not model_blob.exists():
-        print(f"\n❌ Blob {model_filename} not found")
-        return None
+        print(f"\n❌ Blob {model_name}/{model_filename} not found")
+        return None, None, None
 
     return model_blob, preproc_garmin_data_blob, preproc_activity_blob
 
@@ -391,8 +434,13 @@ def get_last_modified_dates_for_model_and_preprocessors_from_gcs(model_filename:
                                                                  preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
                                                                  preproc_activity_filename: str = ACTIVITY_PREPROC_NAME,
                                                                  bucket_name: str = BUCKET_NAME):
+
     model_blob, preproc_garmin_data_blob, preproc_activity_blob = get_model_and_preprocessors_blobs_from_gcs(
         model_filename, preproc_garmin_data_filename, preproc_activity_filename, bucket_name)
+
+    if (model_blob is None) or (preproc_garmin_data_blob is None) or (preproc_activity_blob is None):
+        default_date = datetime(1970, 1, 1)
+        return default_date, default_date, default_date
 
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
@@ -414,12 +462,88 @@ def download_model_and_preprocessors_from_gcs(
 
     model_blob, preproc_garmin_data_blob, preproc_activity_blob = get_model_and_preprocessors_blobs_from_gcs(
         model_filename, preproc_garmin_data_filename, preproc_activity_filename, bucket_name)
+    if (model_blob is None) or (preproc_garmin_data_blob is None) or (preproc_activity_blob is None):
+        return
 
-    model_blob.download_to_filename(join(
-        model_path, model_filename))
-    print("✅ Latest model downloaded from cloud storage")
-    preproc_activity_blob.download_to_filename(join(
-        preprocessors_path, preproc_activity_filename))
-    preproc_garmin_data_blob.download_to_filename(join(
-        preprocessors_path, preproc_garmin_data_filename))
-    print("✅ Latest preprocessors downloaded from cloud storage")
+    model_name = pathlib.PurePath(model_filename).stem
+    full_model_path = join(model_path, model_name)
+    if not exists(full_model_path):
+        makedirs(full_model_path)
+
+    full_preprocessors_path = join(preprocessors_path, model_name)
+    if not exists(full_preprocessors_path):
+        makedirs(full_preprocessors_path)
+
+    print(
+        f"\n⌛ Downloading latest model and preprocessors version for {model_name}... ⌛")
+
+    model_blob.download_to_filename(join(full_model_path, model_filename))
+    print(
+        f"✅ Latest version of model {model_name} downloaded from cloud storage")
+    preproc_activity_blob.download_to_filename(
+        join(full_preprocessors_path, preproc_activity_filename))
+    preproc_garmin_data_blob.download_to_filename(
+        join(full_preprocessors_path, preproc_garmin_data_filename))
+    print(
+        f"✅ Latest preprocessors version for model {model_name} downloaded from cloud storage")
+
+
+def load_preprocessors_and_model(model_path: str = MODEL_PATH,
+                                 model_filename: str = MODEL_NAME,
+                                 preprocessors_path: str = MODEL_PATH,
+                                 preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                 preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+    model_name = pathlib.PurePath(model_filename).stem
+    preproc_garmin_data = load(
+        open(join(preprocessors_path, model_name, preproc_garmin_data_filename), "rb"))
+    preproc_activity = load(
+        open(join(preprocessors_path, model_name, preproc_activity_filename), "rb"))
+    model = load_model(join(model_path, model_name, model_filename))
+    return preproc_garmin_data, preproc_activity, model
+
+
+def get_all_models():
+    models = list_all_models_from_gcs()
+    if len(models) == 0:
+        preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model()
+
+        model_dict = models[pathlib.PurePath(MODEL_NAME).stem]
+
+        model_dict[MODEL_FILENAME_KEY] = MODEL_NAME
+        model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY] = GARMIN_DATA_PREPROC_NAME
+        model_dict[PREPROC_ACTIVITY_FILENAME_KEY] = ACTIVITY_PREPROC_NAME
+
+        model_dict[MODEL_KEY] = model
+        model_dict[PREPROC_GARMIN_DATA_KEY] = preproc_garmin_data
+        model_dict[PREPROC_ACTIVITY_KEY] = preproc_activity
+
+        default_date = datetime(1970, 1, 1)
+        model_dict[MODEL_BLOB_UPDATED_KEY] = default_date
+        model_dict[PREPROC_GARMIN_DATA_BLOB_UPDATED_KEY] = default_date
+        model_dict[PREPROC_ACTIVITY_BLOB_UPDATED_KEY] = default_date
+        return models
+
+    for model_dict in models.values():
+        model_blob_updated, preproc_garmin_data_blob_updated, preproc_activity_blob_updated = get_last_modified_dates_for_model_and_preprocessors_from_gcs(
+            model_filename=model_dict[MODEL_FILENAME_KEY],
+            preproc_garmin_data_filename=model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY],
+            preproc_activity_filename=model_dict[PREPROC_ACTIVITY_FILENAME_KEY]
+        )
+        download_model_and_preprocessors_from_gcs(
+            model_filename=model_dict[MODEL_FILENAME_KEY],
+            preproc_garmin_data_filename=model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY],
+            preproc_activity_filename=model_dict[PREPROC_ACTIVITY_FILENAME_KEY]
+        )
+        preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model(
+            model_filename=model_dict[MODEL_FILENAME_KEY],
+            preproc_garmin_data_filename=model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY],
+            preproc_activity_filename=model_dict[PREPROC_ACTIVITY_FILENAME_KEY]
+        )
+        model_dict[MODEL_KEY] = model
+        model_dict[PREPROC_GARMIN_DATA_KEY] = preproc_garmin_data
+        model_dict[PREPROC_ACTIVITY_KEY] = preproc_activity
+
+        model_dict[MODEL_BLOB_UPDATED_KEY] = model_blob_updated
+        model_dict[PREPROC_GARMIN_DATA_BLOB_UPDATED_KEY] = preproc_garmin_data_blob_updated
+        model_dict[PREPROC_ACTIVITY_BLOB_UPDATED_KEY] = preproc_activity_blob_updated
+    return models

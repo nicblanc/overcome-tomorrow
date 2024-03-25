@@ -3,19 +3,19 @@ import pandas as pd
 from overcome_tomorrow.utils.data import *
 from overcome_tomorrow.ml_logic.preprocess import *
 from overcome_tomorrow.params import *
-from os.path import isfile, join, exists
+from os import makedirs
+from os.path import join, exists
 from tqdm import tqdm
-from pickle import dump, load
+from pickle import dump
 from datetime import datetime, timedelta
 
-from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, Dropout, Activation
 from tensorflow.keras import Model, Sequential, layers, regularizers, optimizers
 from tensorflow.keras.callbacks import EarlyStopping
 
 
 def get_data(input_path=DATA_PATH):
-    # TODO load from Google Cloud
     try:
         activities = load_csv_from_bq(DTYPES_ACTIVITIES_RAW, "activities")
         garmin_data = load_csv_from_bq(DTYPES_GARMIN_DATA_RAW, "garmin_data")
@@ -29,13 +29,22 @@ def get_data(input_path=DATA_PATH):
         return garmin_data, activities
     except Exception as e:
         print(
-            f"⚠️ Try to load for local data, following error occured:\n{e} ⚠️")
-        wellness_path = join(DATA_PATH, "Wellness/")
-        fitness_path = join(DATA_PATH, "Fitness/")
-        aggregator_path = join(DATA_PATH, "Aggregator/")
+            f"⚠️ Trying to load data locally ⚠️\n Following error occured during loading data from BigQuery:\n{e}")
+
+        garmin_data_path = join(DATA_PATH, "garmin_data.csv")
         activities_path = join(DATA_PATH, "activities.csv")
-        garmin_data = merge_all_data(
-            wellness_path, fitness_path, aggregator_path)
+        garmin_data = None
+
+        try:
+            garmin_data = pd.read_csv(garmin_data_path, parse_dates=[
+                                      "start_sleep", "end_sleep", "beginTimestamp"])
+        except Exception:
+            wellness_path = join(DATA_PATH, "Wellness/")
+            fitness_path = join(DATA_PATH, "Fitness/")
+            aggregator_path = join(DATA_PATH, "Aggregator/")
+            garmin_data = merge_all_data(
+                wellness_path, fitness_path, aggregator_path)
+
         activities = pd.read_csv(activities_path,
                                  parse_dates=["timestamp", "start_time"])
         garmin_data.sort_values(by=["beginTimestamp"], inplace=True)
@@ -43,21 +52,6 @@ def get_data(input_path=DATA_PATH):
         activities.sort_values(by=["start_time"], inplace=True)
         activities.reset_index(drop=True, inplace=True)
         return garmin_data, activities
-
-    wellness_path = join(DATA_PATH, "Wellness/")
-    fitness_path = join(DATA_PATH, "Fitness/")
-    aggregator_path = join(DATA_PATH, "Aggregator/")
-    activities_path = join(DATA_PATH, "activities.csv")
-    garmin_data = merge_all_data(wellness_path, fitness_path, aggregator_path)
-    activities = pd.read_csv(activities_path, parse_dates=[
-                             "timestamp", "start_time"])
-    garmin_data.sort_values(by=["beginTimestamp"], inplace=True)
-    garmin_data.dropna(subset=["beginTimestamp"], inplace=True)
-    activities.sort_values(by=["start_time"], inplace=True)
-    activities.reset_index(drop=True, inplace=True)
-    print(garmin_data.info())
-    print(activities.info())
-    return garmin_data, activities
 
 
 def create_sliding_windows_dataset(garmin_data, activities, preproc_garmin_data, preproc_activity):
@@ -68,11 +62,12 @@ def create_sliding_windows_dataset(garmin_data, activities, preproc_garmin_data,
     X_train = []
     y_train = []
 
-    for i in tqdm(range(steps, activities.shape[0])):
+    for i in tqdm(range(steps, activities.shape[0]), desc="⌛ Creating Sliding Window dataset... ⌛"):
         activity = activities.iloc[[i]]
         activity_time = activity["start_time"][i].strftime('%Y-%m-%d %H:%M:%S')
         window_df = garmin_data[garmin_data["beginTimestamp"]
                                 < activity_time].iloc[i - steps:i]
+        # TODO find a way to preprocess everything only once and then create the sliding windows dataset
         X_train.append(preproc_garmin_data.transform(window_df))
         # TODO y_train.append(preproc_activity.transform(activity)[0])
         y_train.append(preproc_activity.transform(activity))
@@ -131,6 +126,18 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
                                 preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
                                 preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
     garmin_data, activities = get_data()
+    return create_train_and_save_model_for_data(garmin_data=garmin_data, activities=activities)
+
+
+def create_train_and_save_model_for_data(garmin_data,
+                                         activities,
+                                         model_path: str = MODEL_PATH,
+                                         model_filename: str = MODEL_NAME,
+                                         preprocessors_path: str = MODEL_PATH,
+                                         preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                         preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+
+    print(f"\n👷‍♂️ Create and train model {model_filename} 👷‍♀️")
 
     # Fit Preprocessors
     preproc_garmin_data = create_preproc_garmin_data(garmin_data)
@@ -143,29 +150,53 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
         garmin_data, activities, preproc_garmin_data, preproc_activity)
 
     # Create model
-    epochs = 100
+    epochs = 50
     model = create_model(X_train, y_train)
     # TODO train test split + validation data
     model.fit(X_train, y_train, batch_size=32, epochs=epochs)
     model.summary()
-    model.save(join(model_path, model_filename))
+
+    model_name = pathlib.PurePath(model_filename).stem
+    full_model_path = join(model_path, model_name, model_filename)
+    model_parent = pathlib.PurePath(full_model_path).parent.as_posix()
+    if not exists(model_parent):
+        makedirs(model_parent)
+
+    full_preprocessors_path = join(preprocessors_path, model_name)
+    if not exists(full_preprocessors_path):
+        makedirs(full_preprocessors_path)
+
+    model.save(full_model_path)
     dump(preproc_garmin_data, open(
-        join(preprocessors_path, preproc_garmin_data_filename), "wb"))
+        join(full_preprocessors_path, preproc_garmin_data_filename), "wb"))
     dump(preproc_activity, open(
-        join(preprocessors_path, preproc_activity_filename), "wb"))
+        join(full_preprocessors_path, preproc_activity_filename), "wb"))
+
+    try:
+        upload_model_to_gcs(model_path=full_model_path)
+        upload_preprocessors_to_gcs(
+            preprocessors_path=full_preprocessors_path, model_name=model_name)
+    except Exception as e:
+        print(
+            f"\n⚠️ Cannot upload model/preprocessors to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
 
 
-def load_preprocessors_and_model(model_path: str = MODEL_PATH,
-                                 model_filename: str = MODEL_NAME,
-                                 preprocessors_path: str = MODEL_PATH,
-                                 preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
-                                 preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
-    preproc_garmin_data = load(
-        open(join(preprocessors_path, preproc_garmin_data_filename), "rb"))
-    preproc_activity = load(
-        open(join(preprocessors_path, preproc_activity_filename), "rb"))
-    model = load_model(join(model_path, model_filename))
-    return preproc_garmin_data, preproc_activity, model
+def create_train_and_save_sports_sub_model_for_data(garmin_data,
+                                                    activities,
+                                                    model_path: str = MODEL_PATH,
+                                                    model_filename: str = MODEL_NAME,
+                                                    preprocessors_path: str = MODEL_PATH,
+                                                    preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                                    preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+    filtered_activities_dict = {sport: activities[activities["sport"].isin(
+        [sport])].reset_index(drop=True) for sport in SPORTS_FILTER}
+    for sport, sport_activities in filtered_activities_dict.items():
+        sub_model_filename = f"{sport}_{model_filename}"
+        # Small hack for swimming/walking to avoid preprocessor to throw an error.
+        if sport in ["swimming", "walking"]:
+            sport_activities["205"] = 100
+        create_train_and_save_model_for_data(garmin_data=garmin_data, activities=sport_activities, model_path=model_path, model_filename=sub_model_filename,
+                                             preprocessors_path=preprocessors_path, preproc_garmin_data_filename=preproc_garmin_data_filename, preproc_activity_filename=preproc_activity_filename)
 
 
 def predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, date=datetime.now()):
@@ -175,8 +206,46 @@ def predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, 
     return preproc_activity.inverse_transform(prediction)
 
 
+def predict_vs_real_for_date(garmin_data, activities, preproc_garmin_data, preproc_activity, model, date=datetime.now()):
+    prediction = predict_for_date(
+        garmin_data, preproc_garmin_data, preproc_activity, model, date)
+    date = date.strftime('%Y-%m-%d')
+    reals = activities[activities["start_time"].dt.strftime(
+        '%Y-%m-%d') == date]
+
+    if len(reals) > 0:
+        # Filter columns and set datetime64 to string type
+        reals = reals[prediction.columns]
+        reals["timestamp"] = reals["timestamp"].astype(str)
+        reals["start_time"] = reals["start_time"].astype(str)
+        return pd.concat([prediction, reals],  keys=['prediction', "real"])
+    return pd.concat([prediction],  keys=["prediction"])
+
+
 def predict_for_last_n_days(garmin_data, preproc_garmin_data, preproc_activity, model, last_days=30):
     input = get_sliding_windows_for_n_last_days(
         garmin_data, preproc_garmin_data, last_days)
-    prediction = model.predict(input)
-    return preproc_activity.inverse_transform(prediction)
+    predictions = model.predict(input)
+    return preproc_activity.inverse_transform(predictions)
+
+
+def predict_vs_real_for_last_n_days(garmin_data, activities, preproc_garmin_data, preproc_activity, model, last_days=30):
+
+    delta = timedelta(days=last_days)
+    last_date = (garmin_data.iloc[-1]["beginTimestamp"] -
+                 delta).strftime('%Y-%m-%d %H:%M:%S')
+    date = garmin_data[garmin_data["beginTimestamp"]
+                       < last_date].iloc[-1]["beginTimestamp"]
+
+    predictions = predict_for_last_n_days(
+        garmin_data, preproc_garmin_data, preproc_activity, model, last_days)
+
+    reals = activities[activities["start_time"].dt.strftime(
+        '%Y-%m-%d %H:%M:%S') >= date.strftime('%Y-%m-%d %H:%M:%S')]
+
+    # Filter columns and set datetime64 to string type
+    reals = reals[predictions.columns]
+    reals["timestamp"] = reals["timestamp"].astype(str)
+    reals["start_time"] = reals["start_time"].astype(str)
+
+    return pd.concat([predictions, reals],  keys=['predictions', "reals"])

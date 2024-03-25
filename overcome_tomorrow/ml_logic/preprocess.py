@@ -19,20 +19,25 @@ class CyclicalFeaturesSleep(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, df, y=None):
-        df["start_sleep"] = df["start_sleep"].dt.hour.astype(float) / 24
-        df["end_sleep"] = df["end_sleep"].dt.hour.astype(float) / 24
-        df["beginTimestamp"] = df["beginTimestamp"].dt.hour.astype(float) / 24
-        df["start_sleep_sin"] = np.sin(2 * np.pi * df["start_sleep"])
-        df["start_sleep_cos"] = np.cos(2 * np.pi * df["start_sleep"])
-        df["end_sleep_sin"] = np.sin(2 * np.pi * df["end_sleep"])
-        df["end_sleep_cos"] = np.cos(2 * np.pi * df["end_sleep"])
-        df["beginTimestamp_sin"] = np.sin(2 * np.pi * df["beginTimestamp"])
-        df["beginTimestamp_cos"] = np.cos(2 * np.pi * df["beginTimestamp"])
+        df["start_sleep_sin"], df["start_sleep_cos"] = convert_time_to_sin_cos(
+            df["start_sleep"])
+        df["end_sleep_sin"], df["end_sleep_cos"] = convert_time_to_sin_cos(
+            df["end_sleep"])
+        df["beginTimestamp_sin"], df["beginTimestamp_cos"] = convert_time_to_sin_cos(
+            df["beginTimestamp"])
+
         df = df.drop(columns=["start_sleep", "end_sleep", "beginTimestamp"])
         return df
 
     def get_feature_names_out(self):
         return self.columns
+
+
+def convert_time_to_sin_cos(time):
+    t = (time.dt.hour * 60 + time.dt.minute) / 1440
+    s = np.sin(2 * np.pi * t)
+    c = np.cos(2 * np.pi * t)
+    return s, c
 
 
 def convert_sin_cos_to_hour(s, c):
@@ -41,10 +46,10 @@ def convert_sin_cos_to_hour(s, c):
     if angle < 0:
         angle += 360
 
-    time = angle / 24
+    time = angle * 24.0 / 360.0
     hours = int(time)
-    minutes = (time*60) % 60
-    seconds = (time*3600) % 60
+    minutes = (time*60.0) % 60.0
+    seconds = (time*3600.0) % 60.0
 
     return ("%d:%02d:%02d" % (hours, minutes, seconds))
 
@@ -58,13 +63,11 @@ class CyclicalFeaturesActivity(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, df, y=None):
-        timestamp = pd.to_datetime(df["timestamp"]).dt.hour.astype(float) / 24
-        start_time = pd.to_datetime(
-            df["start_time"]).dt.hour.astype(float) / 24
-        df["timestamp_sin"] = np.sin(2 * np.pi * timestamp)
-        df["timestamp_cos"] = np.cos(2 * np.pi * timestamp)
-        df["start_time_sin"] = np.sin(2 * np.pi * start_time)
-        df["start_time_cos"] = np.cos(2 * np.pi * start_time)
+
+        df["timestamp_sin"], df["timestamp_cos"] = convert_time_to_sin_cos(
+            pd.to_datetime(df["timestamp"]))
+        df["start_time_sin"], df["start_time_cos"] = convert_time_to_sin_cos(
+            pd.to_datetime(df["start_time"]))
         df = df.drop(columns=["timestamp", "start_time"])
         return df
 
@@ -112,27 +115,9 @@ def create_preproc_garmin_data(data):
     return full_preprocessing
 
 
-def preproc_garmin_data(data=None) -> pd.DataFrame:
-    """
-    preprocessing of datas garmin
-    data : by default None
-    """
-    # CHECK DATA
-    if data is None:
-        data = merge_all_data("../../raw_data/Wellness/",
-                              "../../raw_data/Fitness/", "../../raw_data/Aggregator/")
-
-    full_preprocessing = create_preproc_garmin_data(data)
-    data_preprocess = full_preprocessing.fit_transform(data)
-    print("✅ Preprocess successful")
-    return data_preprocess
-
-
 def create_preproc_activity(activity_df):
-
-    # get numerical data
-    data_num = activity_df.select_dtypes(include=np.number)
-    data_num
+    # If all values are NA, drop that column.
+    activity_df.dropna(axis=1, how="all", inplace=True)
 
     # get cols numerical
     numerical_features = activity_df.select_dtypes(include=np.number).columns
@@ -162,7 +147,7 @@ def create_preproc_activity(activity_df):
 
     # pipeline knn imputer
     pipe_knn_imputer = Pipeline([
-        ('knn_imputer', KNNImputer(n_neighbors=4)),
+        ('knn_imputer', KNNImputer(n_neighbors=4, add_indicator=True)),
         ('robust_scaler', RobustScaler())
     ])
 
@@ -194,20 +179,6 @@ def create_preproc_activity(activity_df):
     ]).set_output(transform="pandas")
 
     return full_proces
-
-
-def preproc_activity(activity_df=None) -> pd.DataFrame:
-    """
-    preprocessing of data activity
-    activity_df : by default None
-    """
-    if activity_df is None:
-        print("❌ No data")
-        return None
-    full_proces = create_preproc_activity(activity_df)
-    data_preprocessed = full_proces.fit_transform(activity_df)
-    print("✅ Preprocess successful")
-    return data_preprocessed
 
 
 class InvertableColumnTransformer(ColumnTransformer):
@@ -253,5 +224,4 @@ class InvertableColumnTransformer(ColumnTransformer):
                                 out[col].append(val)
                 except Exception as e:
                     print(e)
-
         return pd.DataFrame.from_dict(out)

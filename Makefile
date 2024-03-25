@@ -4,7 +4,7 @@ reinstall_package:
 	@pip install -e .
 
 build_dev_image:
-	docker build --tag=$$IMAGE_NAME:dev .
+	docker build --build-arg data_path=$$DATA_PATH --build-arg model_path=$$MODEL_PATH --build-arg model_name=$$MODEL_NAME --build-arg activity_preproc_name=$$ACTIVITY_PREPROC_NAME --build-arg garmin_data_preproc_name=$$GARMIN_DATA_PREPROC_NAME -f Dockerfile_dev --tag=$$IMAGE_NAME:dev .
 
 run_dev_image:
 	docker run -e PORT=$$PORT -p $$PORT:$$PORT --env-file .env $$IMAGE_NAME:dev
@@ -30,6 +30,8 @@ streamlit:
 
 run_api:
 	uvicorn --host 0.0.0.0 --port $$PORT overcome_tomorrow.api.overcome_api:tomorrow_app --reload
+
+start_overcome_tomorrow: run_api | streamlit
 
 upload_files_to_bq:
 	python -c 'from overcome_tomorrow.utils.data import upload_csv_to_bq; upload_csv_to_bq("raw_data/activities.csv"); upload_csv_to_bq("raw_data/garmin_data.csv")'

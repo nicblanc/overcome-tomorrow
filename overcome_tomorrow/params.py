@@ -1,5 +1,7 @@
 import os
 
+##################  ENV VARIABLES  ##################
+
 MODEL_PATH = os.environ.get("MODEL_PATH")
 MODEL_NAME = os.environ.get("MODEL_NAME")
 GARMIN_DATA_PREPROC_NAME = os.environ.get("GARMIN_DATA_PREPROC_NAME")
@@ -22,3 +24,32 @@ DTYPES_ACTIVITIES_RAW = {
     "timestamp": "datetime64[ns, UTC]",
     "start_time": "datetime64[ns, UTC]"
 }
+
+
+##################  CONSTANTS  #####################
+
+
+MODEL_FILENAME_KEY = "model_filename"
+PREPROC_GARMIN_DATA_FILENAME_KEY = "preproc_garmin_data_filename"
+PREPROC_ACTIVITY_FILENAME_KEY = "preproc_activity_filename"
+
+MODEL_KEY = "model"
+PREPROC_GARMIN_DATA_KEY = "preproc_garmin_data"
+PREPROC_ACTIVITY_KEY = "preproc_activity"
+
+MODEL_BLOB_UPDATED_KEY = "model_blob_updated"
+PREPROC_GARMIN_DATA_BLOB_UPDATED_KEY = "preproc_garmin_data_blob_updated"
+PREPROC_ACTIVITY_BLOB_UPDATED_KEY = "preproc_activity_blob_updated"
+
+PRIMARY_BENEFIT_LABEL = {
+    0: "None",
+    1: "Recovery",
+    2: "Base",
+    3: "Tempo",
+    4: "Threshold",
+    5: "VO2max",
+    6: "Anaerobic",
+    7: "Speed",
+}
+
+SPORTS_FILTER = ["cycling", "running", "swimming", "walking"]
