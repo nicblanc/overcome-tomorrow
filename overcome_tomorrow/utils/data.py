@@ -370,21 +370,19 @@ def upload_preprocessors_to_gcs(preprocessors_path: str = MODEL_PATH,
 
 
 def get_bucket(bucket_name: str = BUCKET_NAME):
-    client = None
     try:
         client = storage.Client()
+        return client.get_bucket(bucket_name)
     except Exception as e:
         print(
             f"\n⚠️ Cannot connect to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
-        return None, None, None
-
-    return client.get_bucket(bucket_name)
+        return None
 
 
 def list_all_models_from_gcs(bucket_name: str = BUCKET_NAME):
     models = defaultdict(dict)
     bucket = get_bucket(bucket_name)
-    if not bucket.exists():
+    if (bucket is None) or (not bucket.exists()):
         print(f"\n❌ Bucket {bucket_name} not found")
         return models
     blobs = bucket.list_blobs()
@@ -477,7 +475,7 @@ def download_model_and_preprocessors_from_gcs(
         makedirs(full_preprocessors_path)
 
     print(
-        f"\n⌛ Downloading latest model and preprocessors version for {{model_name}}... ⌛")
+        f"\n⌛ Downloading latest model and preprocessors version for {model_name}... ⌛")
 
     model_blob.download_to_filename(join(full_model_path, model_filename))
     print(f"✅ Latest model {model_name} version downloaded from cloud storage")
@@ -505,6 +503,25 @@ def load_preprocessors_and_model(model_path: str = MODEL_PATH,
 
 def get_all_models():
     models = list_all_models_from_gcs()
+    if len(models) == 0:
+        preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model()
+
+        model_dict = models[pathlib.PurePath(MODEL_NAME).stem]
+
+        model_dict[MODEL_FILENAME_KEY] = MODEL_NAME
+        model_dict[PREPROC_GARMIN_DATA_FILENAME_KEY] = GARMIN_DATA_PREPROC_NAME
+        model_dict[PREPROC_ACTIVITY_FILENAME_KEY] = ACTIVITY_PREPROC_NAME
+
+        model_dict[MODEL_KEY] = model
+        model_dict[PREPROC_GARMIN_DATA_KEY] = preproc_garmin_data
+        model_dict[PREPROC_ACTIVITY_KEY] = preproc_activity
+
+        default_date = datetime(1970, 1, 1)
+        model_dict[MODEL_BLOB_UPDATED_KEY] = default_date
+        model_dict[PREPROC_GARMIN_DATA_BLOB_UPDATED_KEY] = default_date
+        model_dict[PREPROC_ACTIVITY_BLOB_UPDATED_KEY] = default_date
+        return models
+
     for model_dict in models.values():
         model_blob_updated, preproc_garmin_data_blob_updated, preproc_activity_blob_updated = get_last_modified_dates_for_model_and_preprocessors_from_gcs(
             model_filename=model_dict[MODEL_FILENAME_KEY],
