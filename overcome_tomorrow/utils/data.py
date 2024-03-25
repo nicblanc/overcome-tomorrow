@@ -291,7 +291,7 @@ def load_csv_from_bq(types,
                      gcp_project: str = GCP_PROJECT,
                      bq_dataset: str = BQ_DATASET):
 
-    print(f"⌛ Loading {table} data from BigQuery server... ⌛ ")
+    print(f"\n⌛ Loading {table} data from BigQuery server... ⌛ ")
 
     query = f"""
         SELECT *
@@ -476,13 +476,17 @@ def download_model_and_preprocessors_from_gcs(
     if not exists(full_preprocessors_path):
         makedirs(full_preprocessors_path)
 
+    print(
+        f"\n⌛ Downloading latest model and preprocessors version for {{model_name}}... ⌛")
+
     model_blob.download_to_filename(join(full_model_path, model_filename))
-    print("✅ Latest model downloaded from cloud storage")
+    print(f"✅ Latest model {model_name} version downloaded from cloud storage")
     preproc_activity_blob.download_to_filename(
         join(full_preprocessors_path, preproc_activity_filename))
     preproc_garmin_data_blob.download_to_filename(
         join(full_preprocessors_path, preproc_garmin_data_filename))
-    print("✅ Latest preprocessors downloaded from cloud storage")
+    print(
+        f"✅ Latest preprocessors version for model {model_name} downloaded from cloud storage")
 
 
 def load_preprocessors_and_model(model_path: str = MODEL_PATH,

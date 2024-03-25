@@ -128,6 +128,15 @@ def predict_next_activity_for_models(models_name: str):
     return [predict_next_activity(model_name) for model_name in models_dict.keys()]
 
 
+@tomorrow_app.get("/activities/next/compare", tags=["activities"])
+def predict_next_activity_for_models(models_name: str):
+    # TODO get activity for each model
+    models_name = models_name.strip()
+    if len(models_name) > 0:
+        return [compare_next_activity(model_name) for model_name in models_name.split(",")]
+    return [compare_next_activity(model_name) for model_name in models_dict.keys()]
+
+
 @tomorrow_app.get("/activities/next/{model_name}", tags=["activities"])
 def predict_next_activity(model_name: str):
     schedule.run_pending()
@@ -138,6 +147,16 @@ def predict_next_activity(model_name: str):
     return predict_for_last_n_days(garmin_data, preproc_garmin_data, preproc_activity, model, 1).iloc[0].to_json()
 
 
+@tomorrow_app.get("/activities/next/{model_name}/compare", tags=["activities"])
+def compare_next_activity(model_name: str):
+    schedule.run_pending()
+    # TODO handle 'DEFAULT' or None model
+    preproc_garmin_data, preproc_activity, model = get_model_from_dict(
+        model_name)
+
+    return predict_vs_real_for_last_n_days(garmin_data, activities, preproc_garmin_data, preproc_activity, model, 1).to_json()
+
+
 @tomorrow_app.get("/activities/date", tags=["activities"])
 def predict_activity_for_date(model_name: str, date: datetime = datetime.now()):
     schedule.run_pending()
@@ -145,6 +164,15 @@ def predict_activity_for_date(model_name: str, date: datetime = datetime.now()):
     preproc_garmin_data, preproc_activity, model = get_model_from_dict(
         model_name)
     return predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, date).iloc[0].to_json()
+
+
+@tomorrow_app.get("/activities/date/compare", tags=["activities"])
+def compare_activity_for_date(model_name: str, date: datetime = datetime.now()):
+    schedule.run_pending()
+    # TODO handle 'DEFAULT' or None model
+    preproc_garmin_data, preproc_activity, model = get_model_from_dict(
+        model_name)
+    return predict_vs_real_for_date(garmin_data, activities, preproc_garmin_data, preproc_activity, model, date).to_json()
 
 
 def get_model_from_dict(model_name):
