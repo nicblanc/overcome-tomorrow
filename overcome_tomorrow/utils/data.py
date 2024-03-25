@@ -327,7 +327,7 @@ def upload_model_to_gcs(model_path: str = join(MODEL_PATH, MODEL_NAME),
     client = storage.Client()
     """ Create bucket if not exists """
     bucket = client.bucket(bucket_name)
-    if not bucket.exists():
+    if (bucket is None) or (not bucket.exists()):
         bucket = client.create_bucket(
             bucket_name, project=gcp_project, location=location)
 
@@ -337,7 +337,7 @@ def upload_model_to_gcs(model_path: str = join(MODEL_PATH, MODEL_NAME),
     print("✅ Model saved to GCS")
 
 
-def upload_preprocessors_to_gcs(preprocessors_path: str = MODEL_PATH,
+def upload_preprocessors_to_gcs(preprocessors_path: str = join(MODEL_PATH, MODEL_NAME),
                                 model_name: str = pathlib.PurePath(
                                     MODEL_NAME).stem,
                                 bucket_name: str = BUCKET_NAME,
@@ -346,7 +346,7 @@ def upload_preprocessors_to_gcs(preprocessors_path: str = MODEL_PATH,
     client = storage.Client()
     bucket = client.bucket(BUCKET_NAME)
     """ Create bucket if not exists """
-    if not bucket.exists():
+    if (bucket is None) or (not bucket.exists()):
         bucket = client.create_bucket(
             bucket_name, project=gcp_project, location=location)
 
@@ -405,7 +405,7 @@ def get_model_and_preprocessors_blobs_from_gcs(model_filename: str = MODEL_NAME,
                                                preproc_activity_filename: str = ACTIVITY_PREPROC_NAME,
                                                bucket_name: str = BUCKET_NAME):
     bucket = get_bucket(bucket_name)
-    if not bucket.exists():
+    if (bucket is None) or (not bucket.exists()):
         print(f"\n❌ Bucket {bucket_name} not found")
         return None, None, None
 
@@ -478,7 +478,8 @@ def download_model_and_preprocessors_from_gcs(
         f"\n⌛ Downloading latest model and preprocessors version for {model_name}... ⌛")
 
     model_blob.download_to_filename(join(full_model_path, model_filename))
-    print(f"✅ Latest model {model_name} version downloaded from cloud storage")
+    print(
+        f"✅ Latest version of model {model_name} downloaded from cloud storage")
     preproc_activity_blob.download_to_filename(
         join(full_preprocessors_path, preproc_activity_filename))
     preproc_garmin_data_blob.download_to_filename(
