@@ -115,27 +115,9 @@ def create_preproc_garmin_data(data):
     return full_preprocessing
 
 
-def preproc_garmin_data(data=None) -> pd.DataFrame:
-    """
-    preprocessing of datas garmin
-    data : by default None
-    """
-    # CHECK DATA
-    if data is None:
-        data = merge_all_data("../../raw_data/Wellness/",
-                              "../../raw_data/Fitness/", "../../raw_data/Aggregator/")
-
-    full_preprocessing = create_preproc_garmin_data(data)
-    data_preprocess = full_preprocessing.fit_transform(data)
-    print("✅ Preprocess successful")
-    return data_preprocess
-
-
 def create_preproc_activity(activity_df):
-
-    # get numerical data
-    data_num = activity_df.select_dtypes(include=np.number)
-    data_num
+    # If all values are NA, drop that column.
+    activity_df.dropna(axis=1, how="all", inplace=True)
 
     # get cols numerical
     numerical_features = activity_df.select_dtypes(include=np.number).columns
@@ -165,7 +147,7 @@ def create_preproc_activity(activity_df):
 
     # pipeline knn imputer
     pipe_knn_imputer = Pipeline([
-        ('knn_imputer', KNNImputer(n_neighbors=4)),
+        ('knn_imputer', KNNImputer(n_neighbors=4, add_indicator=True)),
         ('robust_scaler', RobustScaler())
     ])
 
@@ -197,20 +179,6 @@ def create_preproc_activity(activity_df):
     ]).set_output(transform="pandas")
 
     return full_proces
-
-
-def preproc_activity(activity_df=None) -> pd.DataFrame:
-    """
-    preprocessing of data activity
-    activity_df : by default None
-    """
-    if activity_df is None:
-        print("❌ No data")
-        return None
-    full_proces = create_preproc_activity(activity_df)
-    data_preprocessed = full_proces.fit_transform(activity_df)
-    print("✅ Preprocess successful")
-    return data_preprocessed
 
 
 class InvertableColumnTransformer(ColumnTransformer):
@@ -256,5 +224,4 @@ class InvertableColumnTransformer(ColumnTransformer):
                                 out[col].append(val)
                 except Exception as e:
                     print(e)
-
         return pd.DataFrame.from_dict(out)

@@ -126,6 +126,18 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
                                 preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
                                 preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
     garmin_data, activities = get_data()
+    return create_train_and_save_model_for_data(garmin_data=garmin_data, activities=activities)
+
+
+def create_train_and_save_model_for_data(garmin_data,
+                                         activities,
+                                         model_path: str = MODEL_PATH,
+                                         model_filename: str = MODEL_NAME,
+                                         preprocessors_path: str = MODEL_PATH,
+                                         preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                         preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+
+    print(f"\n👷‍♂️ Create and train model {model_filename} 👷‍♀️")
 
     # Fit Preprocessors
     preproc_garmin_data = create_preproc_garmin_data(garmin_data)
@@ -138,10 +150,10 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
         garmin_data, activities, preproc_garmin_data, preproc_activity)
 
     # Create model
-    epochs = 200
+    epochs = 50
     model = create_model(X_train, y_train)
     # TODO train test split + validation data
-    model.fit(X_train, y_train, batch_size=16, epochs=epochs)
+    model.fit(X_train, y_train, batch_size=32, epochs=epochs)
     model.summary()
 
     model_name = pathlib.PurePath(model_filename).stem
@@ -156,17 +168,35 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
 
     model.save(full_model_path)
     dump(preproc_garmin_data, open(
-        join(preprocessors_path, model_name, preproc_garmin_data_filename), "wb"))
+        join(full_preprocessors_path, preproc_garmin_data_filename), "wb"))
     dump(preproc_activity, open(
-        join(preprocessors_path, model_name, preproc_activity_filename), "wb"))
+        join(full_preprocessors_path, preproc_activity_filename), "wb"))
 
     try:
         upload_model_to_gcs(model_path=full_model_path)
         upload_preprocessors_to_gcs(
-            preprocessors_path=preprocessors_path, model_name=model_name)
+            preprocessors_path=full_preprocessors_path, model_name=model_name)
     except Exception as e:
         print(
             f"\n⚠️ Cannot upload model/preprocessors to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
+
+
+def create_train_and_save_sports_sub_model_for_data(garmin_data,
+                                                    activities,
+                                                    model_path: str = MODEL_PATH,
+                                                    model_filename: str = MODEL_NAME,
+                                                    preprocessors_path: str = MODEL_PATH,
+                                                    preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                                    preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+    filtered_activities_dict = {sport: activities[activities["sport"].isin(
+        [sport])].reset_index(drop=True) for sport in SPORTS_FILTER}
+    for sport, sport_activities in filtered_activities_dict.items():
+        sub_model_filename = f"{sport}_{model_filename}"
+        # Small hack for swimming/walking to avoid preprocessor to throw an error.
+        if sport in ["swimming", "walking"]:
+            sport_activities["205"] = 100
+        create_train_and_save_model_for_data(garmin_data=garmin_data, activities=sport_activities, model_path=model_path, model_filename=sub_model_filename,
+                                             preprocessors_path=preprocessors_path, preproc_garmin_data_filename=preproc_garmin_data_filename, preproc_activity_filename=preproc_activity_filename)
 
 
 def predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, date=datetime.now()):
