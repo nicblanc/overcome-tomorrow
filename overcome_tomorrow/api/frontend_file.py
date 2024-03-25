@@ -8,10 +8,10 @@ import json
 import dateutil.parser
 from PIL import Image
 from io import StringIO
+from utils_api.data_visualization_functions import *
 import os
 
 BACKEND_URL = os.environ["BACKEND_URL"]
-
 model_names = requests.get(f'{BACKEND_URL}/models').json()
 model_name = model_names[0]
 
@@ -339,15 +339,65 @@ def third_page():
 
 # Page - Data analysis
 
-
 def fourth_page():
-    st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Data Analysis</h1>",
-                unsafe_allow_html=True)
-    st.markdown("<p style='text-align: left;color:#CAC0B3;'>Here you can look at some datas</p>",
-                unsafe_allow_html=True)
-    st.write("(Add some charts about data analysis)")
+    st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Data Analysis</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: left;color:#CAC0B3;'>Here you can look at some data</p>", unsafe_allow_html=True)
+    
+    data = pd.read_csv("raw_data/activities.csv")
 
+    # Define a common text color for titles
+    text_color = "#FFF000"  # Example: Bright red, adjust as needed
 
+    # Using columns to display two graphs per line and using markdown for colored titles
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"<h3 style='color: {text_color};'>Activities per Month</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_activities_per_month(data))
+    with col2:
+        st.markdown(f"<h3 style='color: {text_color};'>Sport Distribution</h3>", unsafe_allow_html=True)
+        st.pyplot(visualize_sport_distribution(data))
+        
+    col3, col4 = st.columns(2)
+    with col3:
+        st.markdown(f"<h3 style='color: {text_color};'>Monthly Distance Over Years</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_monthly_distance_over_years(data))
+    with col4:
+        st.markdown(f"<h3 style='color: {text_color};'>Cadence VS Speed</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_scatter_average_cadence_vs_speed(data))
+
+    col5, col6 = st.columns(2)
+    with col5:
+        st.markdown(f"<h3 style='color: {text_color};'>Average Speed Over Time</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_average_speed_over_time(data))
+    with col6:
+        st.markdown(f"<h3 style='color: {text_color};'>Monthly Calorie and Distance</h3>", unsafe_allow_html=True)
+        st.pyplot(plot_monthly_calorie_and_distance(data))
+
+    # Input widgets for graphs requiring specific parameters, with titles also in color
+    st.markdown(f"<h3 style='color: {text_color};'>Monthly Distance for a Specific Year and Month</h3>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        year = st.number_input("Enter the year", value=2023, step=1, min_value=2019, max_value=2024)
+    with col2:
+        months = ["January", "February", "March", "April", "May", "June", 
+                  "July", "August", "September", "October", "November", "December"]
+        month_ = st.selectbox("Select the month", options=months, index=0)
+        month = months.index(month_) + 1
+    st.pyplot(plot_monthly_distance(year, month, data))
+
+    st.markdown(f"<h3 style='color: {text_color};'>Analysis of Last Activities for a Specific Sport</h3>", unsafe_allow_html=True)   
+    col1, col2 = st.columns(2)
+    with col1:
+
+        num_days = st.number_input("Enter the number of days", min_value=1, max_value=100, value=20)
+    with col2:
+        # Use st.selectbox for sport type selection with titles in color
+        sport_type_options = ["running", "cycling", "walking", "training", "swimming"]
+        sport_type = st.selectbox("Select the sport type", options=sport_type_options)
+
+    st.pyplot(analyze_last_activities(data, num_days, sport_type))
+
+    
 # Navigation
 if 'current_page' not in st.session_state:
     st.session_state['current_page'] = 'home'
