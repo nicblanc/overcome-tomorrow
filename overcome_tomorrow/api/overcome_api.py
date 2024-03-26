@@ -22,6 +22,10 @@ tags_metadata = [
         "description": "Operations regarding overcome-tomorrow models.",
     },
     {
+        "name": "data",
+        "description": "Operations regarding data.",
+    },
+    {
         "name": "activities",
         "description": "Operations regarding activities.",
     }
@@ -108,6 +112,16 @@ def get_model_names():
     return set(models_dict.keys())
 
 
+@tomorrow_app.get("/data/activities", tags=["data"])
+def get_activites_data():
+    return activities.to_json()
+
+
+@tomorrow_app.get("/data/garmin_data", tags=["data"])
+def get_garmin_data_data():
+    return garmin_data.to_json()
+
+
 @tomorrow_app.get("/activities", tags=["activities"])
 def get_activity(activity_datetime: str, summarized: bool = True):
     # TODO handle date
@@ -129,7 +143,7 @@ def predict_next_activity_for_models(models_name: str):
 
 
 @tomorrow_app.get("/activities/next/compare", tags=["activities"])
-def predict_next_activity_for_models(models_name: str):
+def compare_next_activity_for_models(models_name: str):
     # TODO get activity for each model
     models_name = models_name.strip()
     if len(models_name) > 0:
@@ -143,8 +157,10 @@ def predict_next_activity(model_name: str):
     # TODO handle 'DEFAULT' or None model
     preproc_garmin_data, preproc_activity, model = get_model_from_dict(
         model_name)
-
-    return predict_for_last_n_days(garmin_data, preproc_garmin_data, preproc_activity, model, 1).iloc[0].to_json()
+    df = predict_for_last_n_days(
+        garmin_data, preproc_garmin_data, preproc_activity, model, 1).iloc[0]
+    df["model_name"] = model_name
+    return df.to_json()
 
 
 @tomorrow_app.get("/activities/next/{model_name}/compare", tags=["activities"])
@@ -153,8 +169,10 @@ def compare_next_activity(model_name: str):
     # TODO handle 'DEFAULT' or None model
     preproc_garmin_data, preproc_activity, model = get_model_from_dict(
         model_name)
-
-    return predict_vs_real_for_last_n_days(garmin_data, activities, preproc_garmin_data, preproc_activity, model, 1).to_json()
+    df = predict_vs_real_for_last_n_days(
+        garmin_data, activities, preproc_garmin_data, preproc_activity, model, 1)
+    df["model_name"] = model_name
+    return df.to_json()
 
 
 @tomorrow_app.get("/activities/date", tags=["activities"])

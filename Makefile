@@ -29,6 +29,9 @@ streamlit:
 	streamlit run overcome_tomorrow/api/frontend_file.py
 
 run_api:
+	uvicorn --host 0.0.0.0 --port $$PORT overcome_tomorrow.api.overcome_api:tomorrow_app
+
+run_api_with_reload:
 	uvicorn --host 0.0.0.0 --port $$PORT overcome_tomorrow.api.overcome_api:tomorrow_app --reload
 
 start_overcome_tomorrow: run_api | streamlit

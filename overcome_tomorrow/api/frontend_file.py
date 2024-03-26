@@ -14,6 +14,8 @@ import os
 BACKEND_URL = os.environ["BACKEND_URL"]
 model_names = requests.get(f'{BACKEND_URL}/models').json()
 model_name = model_names[0]
+activities = pd.read_json(requests.get(
+    f'{BACKEND_URL}/data/activities').json())
 
 st.set_page_config(layout="wide")
 # CSS pour changer le fond de l'application / le design des boutons
@@ -70,8 +72,19 @@ def display_activities_sum_true():
 def predict_next_activity():
     next_activity = json.loads(requests.get(
         f'{BACKEND_URL}/activities/next', params={"models_name": model_name}).json()[0])
-    print(next_activity)
+
     return extract_activity_from_json(next_activity)
+
+
+def predict_next_activities(selected_models):
+    next_activities = requests.get(
+        f'{BACKEND_URL}/activities/next', params={"models_name": selected_models}).json()
+    res = [json.loads(next_activity) for next_activity in next_activities]
+    df = pd.DataFrame.from_dict(res)
+    df["total_distance"] = round(df["total_distance"] / 1000, 2)
+    df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
+    df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
+    return df
 
 
 def predict_activity_date(date):
@@ -83,8 +96,10 @@ def predict_activity_date(date):
 def compare_activity_date(date):
     res = requests.get(
         f'{BACKEND_URL}/activities/date/compare', params={"model_name": model_name, "date": date}).json()
-    print(res)
     df = pd.read_json(StringIO(res))
+    df["total_distance"] = round(df["total_distance"] / 1000, 2)
+    df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
+    df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
     return df
 
 
@@ -335,15 +350,50 @@ def third_page():
     if st.button("COMPARE 📊"):
         df = compare_activity_date(date)
 
-    st.write(df.head())
+    st.write(df)
+
+# All possible outcom page
+
+
+def fourth_page():
+
+    st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Now it's time for you to choose 🤔</h1>",
+                unsafe_allow_html=True)
+
+    st.markdown("<h2 style='text-align: left; color: #FF595A;'>\
+                <blockquote> \
+                <p>I went forward in time... to view alternate futures. To see all the possible outcomes...</p> \
+                </blockquote> \
+                <figcaption> \
+                <p>Doctor Strange (Avengers: Infinity War, 2018)</p>\
+                </figcaption></h2>",
+                unsafe_allow_html=True)
+    st.markdown("""<p style='text-align: left;color:#CAC0B3;'>You can now select as many model as you please, and for each one of them, predict your performance given you current history activities.</p>""",
+                unsafe_allow_html=True)
+    st.markdown("""<p style='text-align: left;color:#CAC0B3;'>Then, like Doctor Strange, you will be able to select the futur that suits you best 😀</p>""",
+                unsafe_allow_html=True)
+
+    selected_model = st.multiselect(
+        "Select models:",
+        model_names
+    )
+    # st.write(selected_model)
+
+    if st.button("PREDICT POSSIBLE ACTIVITES 📊"):
+        df = predict_next_activities(",".join(selected_model))
+        st.write(df)
+
 
 # Page - Data analysis
 
-def fourth_page():
-    st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Data Analysis</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: left;color:#CAC0B3;'>Here you can look at some data</p>", unsafe_allow_html=True)
-    
-    data = pd.read_csv("raw_data/activities.csv")
+
+def fifth_page():
+    st.markdown("<h1 style='text-align: Left; color: #FF595A;'>Data Analysis</h1>",
+                unsafe_allow_html=True)
+    st.markdown("<p style='text-align: left;color:#CAC0B3;'>Here you can look at some data</p>",
+                unsafe_allow_html=True)
+
+    data = activities  # pd.read_csv("raw_data/activities.csv")
 
     # Define a common text color for titles
     text_color = "#FFF000"  # Example: Bright red, adjust as needed
@@ -351,53 +401,65 @@ def fourth_page():
     # Using columns to display two graphs per line and using markdown for colored titles
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f"<h3 style='color: {text_color};'>Activities per Month</h3>", unsafe_allow_html=True)
+        st.markdown(
+            f"<h3 style='color: {text_color};'>Activities per Month</h3>", unsafe_allow_html=True)
         st.pyplot(plot_activities_per_month(data))
     with col2:
-        st.markdown(f"<h3 style='color: {text_color};'>Sport Distribution</h3>", unsafe_allow_html=True)
+        st.markdown(
+            f"<h3 style='color: {text_color};'>Sport Distribution</h3>", unsafe_allow_html=True)
         st.pyplot(visualize_sport_distribution(data))
-        
+
     col3, col4 = st.columns(2)
     with col3:
-        st.markdown(f"<h3 style='color: {text_color};'>Monthly Distance Over Years</h3>", unsafe_allow_html=True)
+        st.markdown(
+            f"<h3 style='color: {text_color};'>Monthly Distance Over Years</h3>", unsafe_allow_html=True)
         st.pyplot(plot_monthly_distance_over_years(data))
     with col4:
-        st.markdown(f"<h3 style='color: {text_color};'>Cadence VS Speed</h3>", unsafe_allow_html=True)
+        st.markdown(
+            f"<h3 style='color: {text_color};'>Cadence VS Speed</h3>", unsafe_allow_html=True)
         st.pyplot(plot_scatter_average_cadence_vs_speed(data))
 
     col5, col6 = st.columns(2)
     with col5:
-        st.markdown(f"<h3 style='color: {text_color};'>Average Speed Over Time</h3>", unsafe_allow_html=True)
+        st.markdown(
+            f"<h3 style='color: {text_color};'>Average Speed Over Time</h3>", unsafe_allow_html=True)
         st.pyplot(plot_average_speed_over_time(data))
     with col6:
-        st.markdown(f"<h3 style='color: {text_color};'>Monthly Calorie and Distance</h3>", unsafe_allow_html=True)
+        st.markdown(
+            f"<h3 style='color: {text_color};'>Monthly Calorie and Distance</h3>", unsafe_allow_html=True)
         st.pyplot(plot_monthly_calorie_and_distance(data))
 
     # Input widgets for graphs requiring specific parameters, with titles also in color
-    st.markdown(f"<h3 style='color: {text_color};'>Monthly Distance for a Specific Year and Month</h3>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h3 style='color: {text_color};'>Monthly Distance for a Specific Year and Month</h3>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        year = st.number_input("Enter the year", value=2023, step=1, min_value=2019, max_value=2024)
+        year = st.number_input("Enter the year", value=2023,
+                               step=1, min_value=2019, max_value=2024)
     with col2:
-        months = ["January", "February", "March", "April", "May", "June", 
+        months = ["January", "February", "March", "April", "May", "June",
                   "July", "August", "September", "October", "November", "December"]
         month_ = st.selectbox("Select the month", options=months, index=0)
         month = months.index(month_) + 1
     st.pyplot(plot_monthly_distance(year, month, data))
 
-    st.markdown(f"<h3 style='color: {text_color};'>Analysis of Last Activities for a Specific Sport</h3>", unsafe_allow_html=True)   
+    st.markdown(
+        f"<h3 style='color: {text_color};'>Analysis of Last Activities for a Specific Sport</h3>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
 
-        num_days = st.number_input("Enter the number of days", min_value=1, max_value=100, value=20)
+        num_days = st.number_input(
+            "Enter the number of days", min_value=1, max_value=100, value=20)
     with col2:
         # Use st.selectbox for sport type selection with titles in color
-        sport_type_options = ["running", "cycling", "walking", "training", "swimming"]
-        sport_type = st.selectbox("Select the sport type", options=sport_type_options)
+        sport_type_options = ["running", "cycling",
+                              "walking", "training", "swimming"]
+        sport_type = st.selectbox(
+            "Select the sport type", options=sport_type_options)
 
     st.pyplot(analyze_last_activities(data, num_days, sport_type))
 
-    
+
 # Navigation
 if 'current_page' not in st.session_state:
     st.session_state['current_page'] = 'home'
@@ -408,10 +470,12 @@ with st.sidebar:
         st.session_state['current_page'] = 'home'
     if st.button('Begin your journey 🏔️'):
         st.session_state['current_page'] = 'second'
-    if st.button('Compate predict VS real 🔎'):
+    if st.button('Compare predict VS real 🔎'):
         st.session_state['current_page'] = 'third'
-    if st.button('Data analysis 📊'):
+    if st.button('Decide your futur 🎯'):
         st.session_state['current_page'] = 'fourth'
+    if st.button('Data analysis 📊'):
+        st.session_state['current_page'] = 'fifth'
 
 if st.session_state['current_page'] == 'home':
     home_page()
@@ -421,3 +485,5 @@ elif st.session_state['current_page'] == 'third':
     third_page()
 elif st.session_state['current_page'] == 'fourth':
     fourth_page()
+elif st.session_state['current_page'] == 'fifth':
+    fifth_page()
