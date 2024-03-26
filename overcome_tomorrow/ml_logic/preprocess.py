@@ -83,7 +83,69 @@ class CyclicalFeaturesActivity(TransformerMixin, BaseEstimator):
         return self.columns
 
 
+class PrimaryBenefitTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, df, y=None):
+        df["188"] = df["188"].map(PRIMARY_BENEFIT_LABEL)
+        return df
+
+    def inverse_transform(self, target):
+        print(target)
+        return target
+
+    def get_feature_names_out(self):
+        return self.columns
+
+
+class MaxAndAvgSpeedTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, df, y=None):
+        df["avgSpeed"] = df["avgSpeed"].fillna(0)
+        df["maxSpeed"] = df["maxSpeed"].fillna(df["avgSpeed"])
+        return df
+
+    def get_feature_names_out(self):
+        return self.columns
+
+
+class EnhancedMaxAndAvgSpeedTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, df, y=None):
+        df["enhanced_avg_speed"] = df["enhanced_avg_speed"].fillna(0)
+        df["enhanced_max_speed"] = df["enhanced_max_speed"].fillna(
+            df["enhanced_avg_speed"])
+        return df
+
+    def get_feature_names_out(self):
+        return self.columns
+
+
 def create_preproc_garmin_data(data):
+
+    # drop cols with 80% of nan
+    cols_with_80_percent_of_nan = []
+    for col in data.columns:
+        if data[col].isna().sum() >= ((data.shape[0] * 60) / 100):
+            cols_with_80_percent_of_nan.append(col)
+    data = data.drop(columns=cols_with_80_percent_of_nan)
 
     # Delete na for columns beginTimestam
     cycle_data = data.select_dtypes(include=np.datetime64).dropna()
@@ -92,10 +154,41 @@ def create_preproc_garmin_data(data):
     cycle_features = data.select_dtypes(include=np.datetime64).columns
     numerical_features = data.select_dtypes(include=np.number).columns
 
+    # delete feature useless
+    numerical_features = list(set(numerical_features) - set(['avgBikeCadence', 'avgPower',
+                                                             'caloriesConsumed', 'maxPower',
+                                                             'normPower', 'trainingStressScore']))
     # pipeline numerical features
     pipe_numerical_knn = Pipeline([
         ('knn_imputer', KNNImputer(n_neighbors=4)),
         ('robust_scaler', RobustScaler())
+    ])
+
+    # pipeline simple imputer fill value with 0
+    pipe_nan_to_0 = Pipeline([
+        ('simple_imputer', SimpleImputer(strategy="constant", fill_value=0)),
+        ('robust_scaler', RobustScaler())
+    ])
+
+    # pipeline function transformer
+    pipe_fill_max_speed = Pipeline([
+        ("function_transformer", MaxAndAvgSpeedTransformer()),
+        ("robust_scaler", RobustScaler())
+    ])
+
+    # column transformer numerical
+    imputer_to_0_features = ["avgRunCadence", "moderateIntensityMinutes",
+                             "vigorousIntensityMinutes", "distance"]
+    knn_features = list(set(numerical_features) - set(["maxSpeed", "avgSpeed", "avgRunCadence",
+                                                      "moderateIntensityMinutes",
+                                                       "vigorousIntensityMinutes",
+                                                       "distance"]))
+
+    numerical_preprocessing = ColumnTransformer(transformers=[
+        ("knn_imputer", pipe_numerical_knn, knn_features),
+        ("simple_imputer_0", pipe_nan_to_0, imputer_to_0_features),
+        ("function_transform_max_speed",
+         pipe_fill_max_speed, ["maxSpeed", "avgSpeed"])
     ])
 
     # pipeline categorial features
@@ -107,7 +200,7 @@ def create_preproc_garmin_data(data):
 
     # full preprocessing
     full_preprocessing = ColumnTransformer(transformers=[
-        ("knn_transformer", pipe_numerical_knn, numerical_features),
+        ("numerical_preprocessing", numerical_preprocessing, numerical_features),
         ("pipe_categorical", pipe_categorical,
          ["sportType", "trainingEffectLabel"]),
         ("cycle transform", CyclicalFeaturesSleep(), cycle_features)
@@ -133,17 +226,11 @@ def create_preproc_activity(activity_df):
                                                         "total_strokes",
                                                         "training_stress_score",
                                                         "avg_cadence",
-                                                        "max_power"
+                                                        "max_power",
+                                                        "total_distance",
+                                                        "total_descent"
                                                         ])
     numerical_features = list(numerical_features)
-
-    # Stamina features
-    # 205: beginning
-    # 206: ending
-    # 207: min
-    beginning_stamina_features = ["205"]
-    numerical_features = list(
-        set(numerical_features) - set(beginning_stamina_features))
 
     # pipeline knn imputer
     pipe_knn_imputer = Pipeline([
@@ -156,6 +243,27 @@ def create_preproc_activity(activity_df):
         ('simple_imputer', SimpleImputer(strategy="constant", fill_value=100)),
         ('robust_scaler', RobustScaler())
     ])
+
+    # pipe function transformer
+
+    pipe_fill_max_speed = Pipeline([
+        ("function_transformer", EnhancedMaxAndAvgSpeedTransformer()),
+        ("robust_scaler", RobustScaler())
+    ])
+
+    # pipeline primary label to col 188
+
+    pipe_primary_label = Pipeline([
+        ('simple_imputer', SimpleImputer(strategy="constant", fill_value=0)),
+        ("transform_188", PrimaryBenefitTransformer()),
+        ("one_hot", OneHotEncoder(sparse_output=False,
+         handle_unknown="ignore", drop="if_binary"))
+    ])
+
+    # Column transformer numerical
+    cols_transformer = ["enhanced_max_speed", "enhanced_avg_speed"]
+    knn_features = list(set(numerical_features) - set(cols_transformer))
+    knn_features = list(set(knn_features) - set(["205", "188"]))
 
     # get data and cols categorial feature
     data_cat = activity_df.select_dtypes(exclude=np.number)
@@ -170,12 +278,16 @@ def create_preproc_activity(activity_df):
          handle_unknown="ignore", drop="if_binary"))
     ])
 
+    # Full preprocessor
     full_proces = InvertableColumnTransformer(transformers=[
-        ("knn_imputer", pipe_knn_imputer, numerical_features),
-        ("cat_encoder", pipe_onehot, ["sport"]),
+        ("knn_imputer", pipe_knn_imputer, knn_features),
+        ("function_transformer_max_speed", pipe_fill_max_speed,
+         ["enhanced_max_speed", "enhanced_avg_speed"]),
+        ("imputer_100", pipe_nan_to_100, ["205"]),
+        ("188_label_primary", pipe_primary_label, ["188"]),
+        ("categorial_proces", pipe_onehot, ["sport"]),
         ("cycle_encoder", CyclicalFeaturesActivity(),
-         ["timestamp", "start_time"]),
-        ("imputer 100", pipe_nan_to_100, beginning_stamina_features)
+         ["timestamp", "start_time"])
     ]).set_output(transform="pandas")
 
     return full_proces
@@ -211,7 +323,7 @@ class InvertableColumnTransformer(ColumnTransformer):
             else:
                 try:
                     if isinstance(transformer, Pipeline):
-                        tmp = transformer[1].inverse_transform(arr)
+                        tmp = transformer[-1].inverse_transform(arr)
                         current_cols = transformer_to_cols[name]
                         for sub in tmp:
                             for col, val in zip(current_cols, sub):
