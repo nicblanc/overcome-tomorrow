@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import numpy as np
 import pandas as pd
@@ -42,7 +43,7 @@ st.markdown(css, unsafe_allow_html=True)  # Pour autoriser les commandes html
 def extract_activity_from_json(json_response):
     calories = json_response.get('total_calories')
     sport = json_response.get('sport').upper()
-    distance = round(json_response.get('total_distance')/1000, 2)
+
     avg_power = json_response.get('avg_power')
     avg_heart_rate = json_response.get('avg_heart_rate')
     avg_speed = round(json_response.get('enhanced_avg_speed')*3.6, 2)
@@ -59,6 +60,9 @@ def extract_activity_from_json(json_response):
     hours = diff.seconds // 3600
     minutes = (diff.seconds % 3600) // 60
     duration = (hours, minutes)
+
+    distance = round(json_response.get('total_distance',
+                     avg_speed * diff.seconds / 3.6) / 1000, 2)
     # st.write(f'test : {response}')
     return calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt
 
@@ -381,6 +385,8 @@ def fourth_page():
 
     if st.button("PREDICT POSSIBLE ACTIVITES 📊"):
         df = predict_next_activities(",".join(selected_model))
+        # Hack if mixing models with primary benefit as a category or a numerical value
+        df["188"] = df["188"].astype("str")
         st.write(df)
 
 

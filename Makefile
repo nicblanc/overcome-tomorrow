@@ -34,7 +34,11 @@ run_api:
 run_api_with_reload:
 	uvicorn --host 0.0.0.0 --port $$PORT overcome_tomorrow.api.overcome_api:tomorrow_app --reload
 
-start_overcome_tomorrow: run_api | streamlit
+start_overcome_tomorrow:
+	make -j 2 run_api streamlit
+
+start_overcome_tomorrow_with_reload:
+	make -j 2 run_api_with_reload streamlit
 
 upload_files_to_bq:
 	python -c 'from overcome_tomorrow.utils.data import upload_csv_to_bq; upload_csv_to_bq("raw_data/activities.csv"); upload_csv_to_bq("raw_data/garmin_data.csv")'

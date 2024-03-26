@@ -83,6 +83,61 @@ class CyclicalFeaturesActivity(TransformerMixin, BaseEstimator):
         return self.columns
 
 
+class PrimaryBenefitTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, df, y=None):
+        df["188"] = df["188"].map(PRIMARY_BENEFIT_LABEL)
+        return df
+
+    def inverse_transform(self, target):
+        print(target)
+        return target
+
+    def get_feature_names_out(self):
+        return self.columns
+
+
+class MaxAndAvgSpeedTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, df, y=None):
+        df["avgSpeed"] = df["avgSpeed"].fillna(0)
+        df["maxSpeed"] = df["maxSpeed"].fillna(df["avgSpeed"])
+        return df
+
+    def get_feature_names_out(self):
+        return self.columns
+
+
+class EnhancedMaxAndAvgSpeedTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, df, y=None):
+        df["enhanced_avg_speed"] = df["enhanced_avg_speed"].fillna(0)
+        df["enhanced_max_speed"] = df["enhanced_max_speed"].fillna(
+            df["enhanced_avg_speed"])
+        return df
+
+    def get_feature_names_out(self):
+        return self.columns
+
+
 def create_preproc_garmin_data(data):
 
     # drop cols with 80% of nan
@@ -94,54 +149,46 @@ def create_preproc_garmin_data(data):
 
     # Delete na for columns beginTimestam
     cycle_data = data.select_dtypes(include=np.datetime64).dropna()
-    
+
     # get all cols for each type
     cycle_features = data.select_dtypes(include=np.datetime64).columns
     numerical_features = data.select_dtypes(include=np.number).columns
-    
-    # fonction transformer
-    def fill_max_speed(row):
-        if np.isnan(row["avgSpeed"]):
-            row["avgSpeed"] = 0
-        if np.isnan(row["maxSpeed"]):
-            row["maxSpeed"] = row["avgSpeed"]
-        return row
-    fill_max_speed_by_avg = FunctionTransformer(lambda df: df.apply(fill_max_speed, axis=1))
-    
+
     # delete feature useless
-    numerical_features = list(set(numerical_features)- set(['avgBikeCadence','avgPower',
-                                       'caloriesConsumed','maxPower',
-                                       'normPower','trainingStressScore']))
+    numerical_features = list(set(numerical_features) - set(['avgBikeCadence', 'avgPower',
+                                                             'caloriesConsumed', 'maxPower',
+                                                             'normPower', 'trainingStressScore']))
     # pipeline numerical features
     pipe_numerical_knn = Pipeline([
         ('knn_imputer', KNNImputer(n_neighbors=4)),
         ('robust_scaler', RobustScaler())
     ])
-                              
+
     # pipeline simple imputer fill value with 0
     pipe_nan_to_0 = Pipeline([
         ('simple_imputer', SimpleImputer(strategy="constant", fill_value=0)),
         ('robust_scaler', RobustScaler())
     ])
-    
+
     # pipeline function transformer
     pipe_fill_max_speed = Pipeline([
-        ("function_transformer", fill_max_speed_by_avg),
+        ("function_transformer", MaxAndAvgSpeedTransformer()),
         ("robust_scaler", RobustScaler())
     ])
-    
+
     # column transformer numerical
-    imputer_to_0_features = ["avgRunCadence", "moderateIntensityMinutes", 
-                            "vigorousIntensityMinutes", "distance"]
+    imputer_to_0_features = ["avgRunCadence", "moderateIntensityMinutes",
+                             "vigorousIntensityMinutes", "distance"]
     knn_features = list(set(numerical_features) - set(["maxSpeed", "avgSpeed", "avgRunCadence",
-                                                      "moderateIntensityMinutes", 
-                                                       "vigorousIntensityMinutes", 
+                                                      "moderateIntensityMinutes",
+                                                       "vigorousIntensityMinutes",
                                                        "distance"]))
-    
+
     numerical_preprocessing = ColumnTransformer(transformers=[
         ("knn_imputer", pipe_numerical_knn, knn_features),
         ("simple_imputer_0", pipe_nan_to_0, imputer_to_0_features),
-        ("function_transform_max_speed", pipe_fill_max_speed, ["maxSpeed", "avgSpeed"])
+        ("function_transform_max_speed",
+         pipe_fill_max_speed, ["maxSpeed", "avgSpeed"])
     ])
 
     # pipeline categorial features
@@ -154,7 +201,8 @@ def create_preproc_garmin_data(data):
     # full preprocessing
     full_preprocessing = ColumnTransformer(transformers=[
         ("numerical_preprocessing", numerical_preprocessing, numerical_features),
-        ("pipe_categorical", pipe_categorical, ["sportType", "trainingEffectLabel"]),
+        ("pipe_categorical", pipe_categorical,
+         ["sportType", "trainingEffectLabel"]),
         ("cycle transform", CyclicalFeaturesSleep(), cycle_features)
     ]).set_output(transform="pandas")
     return full_preprocessing
@@ -195,65 +243,33 @@ def create_preproc_activity(activity_df):
         ('simple_imputer', SimpleImputer(strategy="constant", fill_value=100)),
         ('robust_scaler', RobustScaler())
     ])
-    
-     # fonction transformer
-    def fill_max_speed(row):
-        if np.isnan(row["enhanced_avg_speed"]):
-            row["enhanced_avg_speed"] = 0
-        if np.isnan(row["enhanced_max_speed"]):
-            row["enhanced_max_speed"] = row["enhanced_avg_speed"]
-        return row
-    fill_max_speed_by_avg = FunctionTransformer(lambda df: df.apply(fill_max_speed, axis=1))
-    
+
     # pipe function transformer
-    
+
     pipe_fill_max_speed = Pipeline([
-        ("function_transformer", fill_max_speed_by_avg),
+        ("function_transformer", EnhancedMaxAndAvgSpeedTransformer()),
         ("robust_scaler", RobustScaler())
     ])
-    
-    # function for 188 to primary label 
-    def get_primary_label(row):
-        primary_label = {
-            0: "None",
-            1: "Recovery",
-            2: "Base",
-            3: "Tempo",
-            4: "Threshold",
-            5: "VO2max",
-            6: "Anaerobic",
-            7: "Speed",
-        }
-        row["188"] = primary_label.get(row["188"])
-        return row
-    function_transformer_label = FunctionTransformer(lambda df: df.apply(get_primary_label, axis=1))
-    
+
     # pipeline primary label to col 188
-    
+
     pipe_primary_label = Pipeline([
         ('simple_imputer', SimpleImputer(strategy="constant", fill_value=0)),
-        ("transform_188", function_transformer_label),
+        ("transform_188", PrimaryBenefitTransformer()),
         ("one_hot", OneHotEncoder(sparse_output=False,
          handle_unknown="ignore", drop="if_binary"))
     ])
-    
+
     # Column transformer numerical
     cols_transformer = ["enhanced_max_speed", "enhanced_avg_speed"]
     knn_features = list(set(numerical_features) - set(cols_transformer))
     knn_features = list(set(knn_features) - set(["205", "188"]))
 
-    numerical_proces = InvertableColumnTransformer(transformers=[
-        ("imputer_100", pipe_nan_to_100, ["205"]),
-        ("knn_imputer", pipe_knn_imputer, knn_features),
-        ("function_transformer_max_speed", pipe_fill_max_speed, ["enhanced_max_speed", "enhanced_avg_speed"]),
-        ("188_label_primary", pipe_primary_label, ["188"])
-    ]).set_output(transform="pandas")
-    
     # get data and cols categorial feature
     data_cat = activity_df.select_dtypes(exclude=np.number)
     cat_features = data_cat.columns
     cat_features = list(set(cat_features) - set(["pool_length_unit"]))
-    
+
     # pipeline categorical
 
     pipe_onehot = Pipeline([
@@ -261,18 +277,17 @@ def create_preproc_activity(activity_df):
         ("one_hot", OneHotEncoder(sparse_output=False,
          handle_unknown="ignore", drop="if_binary"))
     ])
-    
-    # Column transformer categorial
-    
-    categorial_proces = InvertableColumnTransformer(transformers=[
-        ("pipe_onehot", pipe_onehot, ["sport"])
-    ]).set_output(transform="pandas")
-    
+
     # Full preprocessor
     full_proces = InvertableColumnTransformer(transformers=[
-        ("numerical_proces", numerical_proces, numerical_features),
+        ("knn_imputer", pipe_knn_imputer, knn_features),
+        ("function_transformer_max_speed", pipe_fill_max_speed,
+         ["enhanced_max_speed", "enhanced_avg_speed"]),
+        ("imputer_100", pipe_nan_to_100, ["205"]),
+        ("188_label_primary", pipe_primary_label, ["188"]),
         ("categorial_proces", pipe_onehot, ["sport"]),
-        ("cycle_encoder", CyclicalFeaturesActivity(), ["timestamp", "start_time"])
+        ("cycle_encoder", CyclicalFeaturesActivity(),
+         ["timestamp", "start_time"])
     ]).set_output(transform="pandas")
 
     return full_proces
@@ -308,7 +323,7 @@ class InvertableColumnTransformer(ColumnTransformer):
             else:
                 try:
                     if isinstance(transformer, Pipeline):
-                        tmp = transformer[1].inverse_transform(arr)
+                        tmp = transformer[-1].inverse_transform(arr)
                         current_cols = transformer_to_cols[name]
                         for sub in tmp:
                             for col, val in zip(current_cols, sub):
