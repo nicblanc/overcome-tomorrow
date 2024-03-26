@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, Dropout, Activation
-from tensorflow.keras import Model, Sequential, layers, regularizers, optimizers
+from tensorflow.keras import Model, Sequential, layers, regularizers, optimizers, losses
 from tensorflow.keras.callbacks import EarlyStopping
 
 
@@ -104,19 +104,22 @@ def get_sliding_window_for_date(garmin_data, date=datetime.now()):
 
 
 def create_model(X_train, y_train):
-    # TODO implement a real model, not just random layers :D
+    # rms = optimizers.RMSprop() #Si jamais on veut utiliser RMSprop()
+    adam = optimizers.Adam(learning_rate=0.001)
+    loss = losses.Huber(delta=1.0)
+
     model = Sequential()
-    model.add(LSTM(units=50, return_sequences=True,
-              input_shape=(X_train.shape[1], X_train.shape[2])))
+    model.add(LSTM(units=100, return_sequences = True, input_shape = (X_train.shape[1], X_train.shape[2])))
     model.add(Dropout(0.2))
-    model.add(LSTM(units=50, return_sequences=True))
+    model.add(LSTM(units=100, return_sequences = True))
     model.add(Dropout(0.2))
-    model.add(LSTM(units=50, return_sequences=True))
+    model.add(LSTM(units=50, return_sequences = True))
     model.add(Dropout(0.2))
-    model.add(LSTM(units=50))
+    model.add(LSTM(units=50, return_sequences = True))
     model.add(Dropout(0.2))
+    model.add(LSTM(units=25))
     model.add(Dense(units=y_train.shape[1]))
-    model.compile(loss="mse", optimizer="adam", metrics=['accuracy'])
+    model.compile(loss=loss, optimizer=adam, metrics=['accuracy'])
     return model
 
 
@@ -152,8 +155,9 @@ def create_train_and_save_model_for_data(garmin_data,
     # Create model
     epochs = 50
     model = create_model(X_train, y_train)
-    # TODO train test split + validation data
-    model.fit(X_train, y_train, batch_size=32, epochs=epochs)
+    # TODO train test split + validation split
+    es = EarlyStopping(patience=10,restore_best_weights=True)
+    model.fit(X_train, y_train, batch_size = 32, epochs = epochs, callbacks = es, verbose = 1, validation_split =0.1)
     model.summary()
 
     model_name = pathlib.PurePath(model_filename).stem
