@@ -119,7 +119,7 @@ def get_activites_data():
 
 @tomorrow_app.get("/data/garmin_data", tags=["data"])
 def get_garmin_data_data():
-    return activities.to_json()
+    return garmin_data.to_json()
 
 
 @tomorrow_app.get("/activities", tags=["activities"])

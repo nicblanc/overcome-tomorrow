@@ -15,7 +15,7 @@ BACKEND_URL = os.environ["BACKEND_URL"]
 model_names = requests.get(f'{BACKEND_URL}/models').json()
 model_name = model_names[0]
 activities = pd.read_json(requests.get(
-    f'{BACKEND_URL}/data/garmin_data').json())
+    f'{BACKEND_URL}/data/activities').json())
 
 st.set_page_config(layout="wide")
 # CSS pour changer le fond de l'application / le design des boutons
