@@ -205,10 +205,11 @@ def home_page():
                 unsafe_allow_html=True)
 
     # Pour centrer également le texte sous le titre
-    st.markdown(f"<p style='text-align: center;color:{color_text};'>Welcome to Overcome Tomorrow – your ultimate partner in sports performance optimization and activity forecastings. <br><br>"
-                "Harness the power of your health and sports data to unlock personalized activity recommendations and elevate your performance.<br><br>"
-                "Our platform uses advanced DeepLearning models to forecast your next sports activity, ensuring each suggestion is perfectly tailored to your fitness level and goals.<br><br>"
-                "Begin your journey today and transform your performance for tomorrow.</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center;color:{color_text};'>Welcome to Overcome Tomorrow – your ultimate partner in sports performance optimization and activity forecastings. 🌟🏋️‍♂️<br><br>"
+                "Harness the power of your health and sports data to unlock personalized activity recommendations and elevate your performance. 💪📈<br><br>"
+                "Our platform uses advanced DeepLearning models to forecast your next sports activity, ensuring each suggestion is perfectly tailored to your fitness level and goals. 🧠🏋️‍♀️<br><br>"
+                "Begin your journey today and transform your performance for tomorrow. 🚀🌟</p>", unsafe_allow_html=True)
+
 
     st.markdown(f"<h4 style='text-align: left; color: {color_title};'>Example of data from one of our athletes :</h1>",
                 unsafe_allow_html=True)
