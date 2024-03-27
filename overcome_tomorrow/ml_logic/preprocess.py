@@ -228,7 +228,8 @@ def create_preproc_activity(activity_df):
                                                         "avg_cadence",
                                                         "max_power",
                                                         "total_distance",
-                                                        "total_descent"
+                                                        "total_descent",
+                                                        "total_ascent"
                                                         ])
     numerical_features = list(numerical_features)
 
