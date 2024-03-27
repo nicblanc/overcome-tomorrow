@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import numpy as np
 import pandas as pd
@@ -77,11 +78,70 @@ st.markdown(css, unsafe_allow_html=True)  # Pour autoriser les commandes html
 
 # API lancée localement pour l'instant, mettre API en ligne ensuite
 
+# DISPLAY MATE
+
+
+def display_mate():
+    image_size = 136
+
+    MATES = {
+        'Nicolas B': 'https://res.cloudinary.com/wagon/image/upload/c_fill,g_face,h_200,w_200/v1706536492/hqg5yim3noq0s5mnk17u.jpg',
+        'Julien R': 'https://res.cloudinary.com/wagon/image/upload/c_fill,g_face,h_200,w_200/v1706552025/dv5dmvijpyjzkn2zw0lp.jpg',
+        'Ruben C': 'https://avatars.githubusercontent.com/u/72013952?v=4',
+    }
+
+    MATES_CSS = f"""
+    #mates {{
+        display: flex;
+        justify-content: center; /* Centrer les éléments horizontalement */
+        flex-wrap: wrap;
+    }}
+
+    .mate-card {{
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Centrer les éléments verticalement */
+    }}
+
+    .mate-card img {{
+        width: {image_size}px;
+        height: {image_size}px;
+        border-radius: 100%;
+        padding: 4px;
+        margin: 10px;
+        box-shadow: 0 0 4px #eee;
+    }}
+
+    .mate-card span {{
+        text-align: center;
+    }}
+    """
+
+    MATES_CARD = """\
+        <div class="mate-card">
+            <img src="{url}">
+            <span>{name}</span>
+        </div>
+    """
+
+    mates = ''.join([MATES_CARD.format(
+        name=f'{name.split()[0]}', url=url) for name, url in MATES.items()])
+
+    MATES_HTML = f"""
+    <style>
+    {MATES_CSS}
+    </style>
+    <div id="mates">
+        {mates}
+    </div>
+    """
+    st.write(MATES_HTML, unsafe_allow_html=True)
+
 
 def extract_activity_from_json(json_response):
     calories = json_response.get('total_calories')
     sport = json_response.get('sport').upper()
-    distance = round(json_response.get('total_distance')/1000, 2)
+
     max_heart_rate = json_response.get('max_heart_rate')
     avg_heart_rate = json_response.get('avg_heart_rate')
     avg_speed = round(json_response.get('enhanced_avg_speed')*3.6, 2)
@@ -98,6 +158,9 @@ def extract_activity_from_json(json_response):
     hours = diff.seconds // 3600
     minutes = (diff.seconds % 3600) // 60
     duration = (hours, minutes)
+
+    distance = round(json_response.get('total_distance',
+                     avg_speed * diff.seconds / 3.6) / 1000, 2)
     # st.write(f'test : {response}')
     return calories, sport, distance, max_heart_rate, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt
 
@@ -120,12 +183,31 @@ def predict_next_activities(selected_models):
         f'{BACKEND_URL}/activities/next', params={"models_name": selected_models}).json()
     res = [json.loads(next_activity) for next_activity in next_activities]
     df = pd.DataFrame.from_dict(res)
-    df["total_distance"] = round(df["total_distance"] / 1000, 2)
-    df["188"] = round(df["188"],0)
-    df["188"] = df["188"].replace(primary_benefit_label)
+
     df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
     df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
-    df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss','206':'Ending_potential_stamina','207':'Min_stamina','205':'Beginning_potential_stamina'}, inplace=True)
+
+    # Hack if mixing models with distance or not
+    if "total_distance" in df:
+        df["total_distance"].fillna(
+            (df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+                dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3.6,
+            inplace=True
+        )
+        df["total_distance"] = round(df["total_distance"] / 1000, 2)
+    else:
+        df["total_distance"] = round((df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+            dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3600, 2)
+
+    # Hack if mixing models with primary benefit as a category or a numerical value
+
+    tmp = pd.to_numeric(df["188"], errors='coerce').round(0)
+    mask = ~(tmp.isnull())
+    df["188"][mask] = tmp[mask].astype("int").replace(primary_benefit_label)
+    df["188"] = df["188"].astype("str")
+
+    df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss', '206': 'Ending_potential_stamina',
+              '207': 'Min_stamina', '205': 'Beginning_potential_stamina'}, inplace=True)
     return df
 
 
@@ -139,12 +221,30 @@ def compare_activity_date(date):
     res = requests.get(
         f'{BACKEND_URL}/activities/date/compare', params={"model_name": model_name, "date": date}).json()
     df = pd.read_json(StringIO(res))
-    df["total_distance"] = round(df["total_distance"] / 1000, 2)
+
     df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
     df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
-    df["188"] = round(df["188"],0)
-    df["188"] = df["188"].replace(primary_benefit_label)
-    df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss','206':'Ending_potential_stamina','207':'Min_stamina','205':'Beginning_potential_stamina'}, inplace=True)
+
+    # Hack if mixing models with distance or not
+    if "total_distance" in df:
+        df["total_distance"].fillna(
+            (df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+                dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3.6,
+            inplace=True
+        )
+        df["total_distance"] = round(df["total_distance"] / 1000, 2)
+    else:
+        df["total_distance"] = round((df["timestamp"].astype("str").apply(dateutil.parser.parse) - df["start_time"].astype("str").apply(
+            dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3600, 2)
+
+    # Hack if mixing models with primary benefit as a category or a numerical value
+    tmp = pd.to_numeric(df["188"], errors='coerce').round(0)
+    mask = ~(tmp.isnull())
+    df["188"][mask] = tmp[mask].astype("int").replace(primary_benefit_label)
+    df["188"] = df["188"].astype("str")
+
+    df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss', '206': 'Ending_potential_stamina',
+              '207': 'Min_stamina', '205': 'Beginning_potential_stamina'}, inplace=True)
     return df
 
 
@@ -166,10 +266,10 @@ def home_page():
                 unsafe_allow_html=True)
 
     # Pour centrer également le texte sous le titre
-    st.markdown(f"<p style='text-align: center;color:{color_text};'>Welcome to Overcome Tomorrow – your ultimate partner in sports performance optimization and activity forecastings. <br><br>"
-                "Harness the power of your health and sports data to unlock personalized activity recommendations and elevate your performance.<br><br>"
-                "Our platform uses advanced DeepLearning models to forecast your next sports activity, ensuring each suggestion is perfectly tailored to your fitness level and goals.<br><br>"
-                "Begin your journey today and transform your performance for tomorrow.</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center;color:{color_text};'>Welcome to Overcome Tomorrow – your ultimate partner in sports performance optimization and activity forecastings. 🌟🏋️‍♂️<br><br>"
+                "Harness the power of your health and sports data to unlock personalized activity recommendations and elevate your performance. 💪📈<br><br>"
+                "Our platform uses advanced DeepLearning models to forecast your next sports activity, ensuring each suggestion is perfectly tailored to your fitness level and goals. 🧠🏋️‍♀️<br><br>"
+                "Begin your journey today and transform your performance for tomorrow. 🚀🌟</p>", unsafe_allow_html=True)
 
     st.markdown(f"<h4 style='text-align: left; color: {color_title};'>Example of data from one of our athletes :</h1>",
                 unsafe_allow_html=True)
@@ -247,8 +347,8 @@ def home_page():
     st.markdown(f"<h4 style='text-align: left; color: {color_title};'>How it works</h1>",
                 unsafe_allow_html=True)
     image = Image.open('overcome_tomorrow/api/static_data/How_it_works.png')
-    st.image(image, caption='How it works', use_column_width=False)
-
+    st.image(image, caption='', use_column_width=False)
+    display_mate()
     with col_graph3:
         option_2 = st.selectbox(
             '', ['Stamina', 'Power', 'Speed', 'Heart Rate'])
@@ -277,6 +377,7 @@ def home_page():
         # Afficher le graphique dans Streamlit avec st.pyplot()
         st.pyplot(plt)
 
+        # Display mates
 # Page - Begin your journey
 
 
@@ -337,7 +438,7 @@ def second_page():
                 unsafe_allow_html=True)
     date = st.date_input(
         "Choose your date 📅")
-    calories_date, sport_date, sport_emoji_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = (
+    calories_date, sport_date, sport_emoji_date, distance_date, max_heart_rate_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = (
         0, "Waiting", "", 0, 0, 0, 0, 0, (0, 0), datetime.min, datetime.min)
 
     if st.button("EVALUATE 📊"):
@@ -372,7 +473,9 @@ def second_page():
         st.markdown(
             f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️‍🔥 Max Heart Rate: {round(max_heart_rate_date,0)} bpm</p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🔥 Calories : {round(calories_date,2)} Kcal</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🔥 Calories : {round(calories_date,2)} Kcal</p>", unsafe_allow_html=True
+        )
+
 
 def third_page():
     # Accueil de la page Compare
@@ -486,7 +589,6 @@ def fifth_page():
         month_ = st.selectbox("Select the month", options=months, index=0)
         month = months.index(month_) + 1
     st.pyplot(plot_monthly_distance(year, month, data))
-
 
     st.markdown(
         f"<h3 style='color: {text_color};'>Analysis of Last Activities for a Specific Sport</h3>", unsafe_allow_html=True)
