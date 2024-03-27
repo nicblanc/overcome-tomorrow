@@ -85,8 +85,8 @@ def display_mate():
     image_size = 136
 
     MATES = {
-        'Nicolas B': 'https://res.cloudinary.com/wagon/image/upload/c_fill,g_face,h_200,w_200/v1706536492/hqg5yim3noq0s5mnk17u.jpg',
         'Julien R': 'https://res.cloudinary.com/wagon/image/upload/c_fill,g_face,h_200,w_200/v1706552025/dv5dmvijpyjzkn2zw0lp.jpg',
+        'Nicolas B': 'https://res.cloudinary.com/wagon/image/upload/c_fill,g_face,h_200,w_200/v1706536492/hqg5yim3noq0s5mnk17u.jpg',
         'Ruben C': 'https://avatars.githubusercontent.com/u/72013952?v=4',
     }
 
@@ -271,6 +271,9 @@ def home_page():
                 "Our platform uses advanced DeepLearning models to forecast your next sports activity, ensuring each suggestion is perfectly tailored to your fitness level and goals. 🧠🏋️‍♀️<br><br>"
                 "Begin your journey today and transform your performance for tomorrow. 🚀🌟</p>", unsafe_allow_html=True)
 
+    # Display mates
+    display_mate()
+
     st.markdown(f"<h4 style='text-align: left; color: {color_title};'>Example of data from one of our athletes :</h1>",
                 unsafe_allow_html=True)
     st.markdown(f"<p style='text-align: left;color:{color_text};'>Nicolas's marathon run in Chicago</p>",
@@ -344,11 +347,6 @@ def home_page():
         # Afficher le graphique dans Streamlit avec st.pyplot()
         st.pyplot(plt)
 
-    st.markdown(f"<h4 style='text-align: left; color: {color_title};'>How it works</h1>",
-                unsafe_allow_html=True)
-    image = Image.open('overcome_tomorrow/api/static_data/How_it_works.png')
-    st.image(image, caption='', use_column_width=False)
-    display_mate()
     with col_graph3:
         option_2 = st.selectbox(
             '', ['Stamina', 'Power', 'Speed', 'Heart Rate'])
@@ -377,7 +375,7 @@ def home_page():
         # Afficher le graphique dans Streamlit avec st.pyplot()
         st.pyplot(plt)
 
-        # Display mates
+
 # Page - Begin your journey
 
 
@@ -607,6 +605,14 @@ def fifth_page():
     st.pyplot(analyze_last_activities(data, num_days, sport_type))
 
 
+def sixth_page():
+    st.markdown('<p align="center"> \
+                <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vQy3IIRKUfB8JhAAlBVqka27tk_haFQOPMEShOjzT5KtVhEoujyPlhUsFRJYTKGDN4LzNP3RwH8GJIC/embed?start=false&loop=false&delayms=3000" \
+                frameborder="0" width="1277" height="755" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true">\
+                </iframe></p>', unsafe_allow_html=True)
+# width="1130" height="672"
+
+
 # Navigation
 if 'current_page' not in st.session_state:
     st.session_state['current_page'] = 'home'
@@ -623,6 +629,8 @@ with st.sidebar:
         st.session_state['current_page'] = 'fourth'
     if st.button('Data analysis 📊'):
         st.session_state['current_page'] = 'fifth'
+    if st.button('How it works ? ⚙️'):
+        st.session_state['current_page'] = 'sixth'
 
 if st.session_state['current_page'] == 'home':
     home_page()
@@ -634,3 +642,5 @@ elif st.session_state['current_page'] == 'fourth':
     fourth_page()
 elif st.session_state['current_page'] == 'fifth':
     fifth_page()
+elif st.session_state['current_page'] == 'sixth':
+    sixth_page()
