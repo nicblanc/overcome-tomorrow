@@ -67,6 +67,61 @@ st.markdown(css, unsafe_allow_html=True)  # Pour autoriser les commandes html
 
 # API lancée localement pour l'instant, mettre API en ligne ensuite
 
+# DISPLAY MATE
+def display_mate():
+    image_size = 136
+
+    MATES = {
+        'Nicolas B': 'https://res.cloudinary.com/wagon/image/upload/c_fill,g_face,h_200,w_200/v1706536492/hqg5yim3noq0s5mnk17u.jpg',
+        'Julien R': 'https://res.cloudinary.com/wagon/image/upload/c_fill,g_face,h_200,w_200/v1706552025/dv5dmvijpyjzkn2zw0lp.jpg',
+        'Ruben C': 'https://avatars.githubusercontent.com/u/72013952?v=4',
+    }
+
+    MATES_CSS = f"""
+    #mates {{
+        display: flex;
+        justify-content: center; /* Centrer les éléments horizontalement */
+        flex-wrap: wrap;
+    }}
+
+    .mate-card {{
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Centrer les éléments verticalement */
+    }}
+
+    .mate-card img {{
+        width: {image_size}px;
+        height: {image_size}px;
+        border-radius: 100%;
+        padding: 4px;
+        margin: 10px;
+        box-shadow: 0 0 4px #eee;
+    }}
+
+    .mate-card span {{
+        text-align: center;
+    }}
+    """
+
+    MATES_CARD = """\
+        <div class="mate-card">
+            <img src="{url}">
+            <span>{name}</span>
+        </div>
+    """
+
+    mates = ''.join([MATES_CARD.format(name=f'{name.split()[0]}', url=url) for name, url in MATES.items()])
+
+    MATES_HTML = f"""
+    <style>
+    {MATES_CSS}
+    </style>
+    <div id="mates">
+        {mates}
+    </div>
+    """
+    st.write(MATES_HTML, unsafe_allow_html=True)
 
 def extract_activity_from_json(json_response):
     calories = json_response.get('total_calories')
@@ -231,8 +286,8 @@ def home_page():
     st.markdown(f"<h4 style='text-align: left; color: {color_title};'>How it works</h1>",
                 unsafe_allow_html=True)
     image = Image.open('overcome_tomorrow/api/static_data/How_it_works.png')
-    st.image(image, caption='How it works', use_column_width=False)
-
+    st.image(image, caption='', use_column_width=False)
+    display_mate()
     with col_graph3:
         option_2 = st.selectbox(
             '', ['Stamina', 'Power', 'Speed', 'Heart Rate'])
@@ -261,8 +316,8 @@ def home_page():
         # Afficher le graphique dans Streamlit avec st.pyplot()
         st.pyplot(plt)
 
+        # Display mates
 # Page - Begin your journey
-
 
 def second_page():
     # Accueil de la deuxième page
