@@ -5,6 +5,8 @@ from overcome_tomorrow.ml_logic.model import *
 from datetime import datetime, timedelta
 import pandas as pd
 import schedule
+# import time
+# import threading
 
 
 tomorrow_app = FastAPI()
@@ -20,6 +22,10 @@ tags_metadata = [
     {
         "name": "models",
         "description": "Operations regarding overcome-tomorrow models.",
+    },
+    {
+        "name": "data",
+        "description": "Operations regarding data.",
     },
     {
         "name": "activities",
@@ -70,8 +76,18 @@ garmin_data, activities = get_data()
 
 
 def check_models_updated():
-    print("⌛ Checking if models and preprocessors are up to date")
+    print("⌛ Checking if models and preprocessors are up to date ⌛")
+
     global models_dict
+
+    available_models = list_all_models_from_gcs()
+    if len(available_models) != 0:
+        # new_models = available_models.keys() - models_dict.keys()
+        new_models = {k: v for k,
+                      v in available_models.items() if k not in models_dict.keys()}
+        if len(new_models) != 0:
+            models_dict.update(get_all_models_from_dict(new_models))
+
     for model_dict in models_dict.values():
         model_blob_updated_tmp, preproc_garmin_data_blob_updated_tmp, preproc_activity_blob_updated_tmp = get_last_modified_dates_for_model_and_preprocessors_from_gcs(
             model_filename=model_dict[MODEL_FILENAME_KEY],
@@ -100,12 +116,32 @@ def check_models_updated():
             model_dict[PREPROC_ACTIVITY_BLOB_UPDATED_KEY] = preproc_activity_blob_updated_tmp
 
 
-schedule.every(1).minutes.do(check_models_updated)
+schedule.every(30).minutes.do(check_models_updated)
+
+
+# def model_checker():
+#     while True:
+#         schedule.run_pending()
+#         time.sleep(10)
+
+
+# model_checker_thread = threading.Thread(target=model_checker)
+# model_checker_thread.start()
 
 
 @tomorrow_app.get("/models", tags=["models"])
 def get_model_names():
-    return set(models_dict.keys())
+    return sorted(models_dict.keys())
+
+
+@tomorrow_app.get("/data/activities", tags=["data"])
+def get_activites_data():
+    return activities.to_json()
+
+
+@tomorrow_app.get("/data/garmin_data", tags=["data"])
+def get_garmin_data_data():
+    return garmin_data.to_json()
 
 
 @tomorrow_app.get("/activities", tags=["activities"])
@@ -129,7 +165,7 @@ def predict_next_activity_for_models(models_name: str):
 
 
 @tomorrow_app.get("/activities/next/compare", tags=["activities"])
-def predict_next_activity_for_models(models_name: str):
+def compare_next_activity_for_models(models_name: str):
     # TODO get activity for each model
     models_name = models_name.strip()
     if len(models_name) > 0:
@@ -139,27 +175,28 @@ def predict_next_activity_for_models(models_name: str):
 
 @tomorrow_app.get("/activities/next/{model_name}", tags=["activities"])
 def predict_next_activity(model_name: str):
-    schedule.run_pending()
     # TODO handle 'DEFAULT' or None model
     preproc_garmin_data, preproc_activity, model = get_model_from_dict(
         model_name)
-
-    return predict_for_last_n_days(garmin_data, preproc_garmin_data, preproc_activity, model, 1).iloc[0].to_json()
+    df = predict_for_last_n_days(
+        garmin_data, preproc_garmin_data, preproc_activity, model, 1).iloc[0]
+    df["model_name"] = model_name
+    return df.to_json()
 
 
 @tomorrow_app.get("/activities/next/{model_name}/compare", tags=["activities"])
 def compare_next_activity(model_name: str):
-    schedule.run_pending()
     # TODO handle 'DEFAULT' or None model
     preproc_garmin_data, preproc_activity, model = get_model_from_dict(
         model_name)
-
-    return predict_vs_real_for_last_n_days(garmin_data, activities, preproc_garmin_data, preproc_activity, model, 1).to_json()
+    df = predict_vs_real_for_last_n_days(
+        garmin_data, activities, preproc_garmin_data, preproc_activity, model, 1)
+    df["model_name"] = model_name
+    return df.to_json()
 
 
 @tomorrow_app.get("/activities/date", tags=["activities"])
 def predict_activity_for_date(model_name: str, date: datetime = datetime.now()):
-    schedule.run_pending()
     # TODO handle 'DEFAULT' or None model
     preproc_garmin_data, preproc_activity, model = get_model_from_dict(
         model_name)
@@ -168,7 +205,6 @@ def predict_activity_for_date(model_name: str, date: datetime = datetime.now()):
 
 @tomorrow_app.get("/activities/date/compare", tags=["activities"])
 def compare_activity_for_date(model_name: str, date: datetime = datetime.now()):
-    schedule.run_pending()
     # TODO handle 'DEFAULT' or None model
     preproc_garmin_data, preproc_activity, model = get_model_from_dict(
         model_name)
@@ -176,6 +212,7 @@ def compare_activity_for_date(model_name: str, date: datetime = datetime.now()):
 
 
 def get_model_from_dict(model_name):
+    schedule.run_pending()
     global models_dict
     model_name = model_name.strip()
     if model_name in models_dict:
