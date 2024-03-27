@@ -32,6 +32,16 @@ sport_emojis = {
     "training": "🏋️‍♂️"
     # Add more mappings as needed
 }
+primary_benefit_label = {
+    0: "None",
+    1: "Recovery",
+    2: "Base",
+    3: "Tempo",
+    4: "Threshold",
+    5: "VO2max",
+    6: "Anaerobic",
+    7: "Speed",
+}
 css = """
 <style>
     .stApp {
@@ -72,7 +82,7 @@ def extract_activity_from_json(json_response):
     calories = json_response.get('total_calories')
     sport = json_response.get('sport').upper()
     distance = round(json_response.get('total_distance')/1000, 2)
-    avg_power = json_response.get('avg_power')
+    max_heart_rate = json_response.get('max_heart_rate')
     avg_heart_rate = json_response.get('avg_heart_rate')
     avg_speed = round(json_response.get('enhanced_avg_speed')*3.6, 2)
     max_speed = round(json_response.get('enhanced_max_speed')*3.6, 2)
@@ -89,7 +99,7 @@ def extract_activity_from_json(json_response):
     minutes = (diff.seconds % 3600) // 60
     duration = (hours, minutes)
     # st.write(f'test : {response}')
-    return calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt
+    return calories, sport, distance, max_heart_rate, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt
 
 
 def display_activities_sum_true():
@@ -111,8 +121,11 @@ def predict_next_activities(selected_models):
     res = [json.loads(next_activity) for next_activity in next_activities]
     df = pd.DataFrame.from_dict(res)
     df["total_distance"] = round(df["total_distance"] / 1000, 2)
+    df["188"] = round(df["188"],0)
+    df["188"] = df["188"].replace(primary_benefit_label)
     df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
     df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
+    df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss','206':'Ending_potential_stamina','207':'Min_stamina','205':'Beginning_potential_stamina'}, inplace=True)
     return df
 
 
@@ -129,6 +142,9 @@ def compare_activity_date(date):
     df["total_distance"] = round(df["total_distance"] / 1000, 2)
     df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
     df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
+    df["188"] = round(df["188"],0)
+    df["188"] = df["188"].replace(primary_benefit_label)
+    df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss','206':'Ending_potential_stamina','207':'Min_stamina','205':'Beginning_potential_stamina'}, inplace=True)
     return df
 
 
@@ -161,7 +177,7 @@ def home_page():
                 unsafe_allow_html=True)
 
     # On récupère les données qu'on veut grâce à la fonction diplay activities summarized egale True et false
-    calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = display_activities_sum_true()
+    calories, sport, distance, max_heart_rate, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = display_activities_sum_true()
     data_power, data_stamina, data_speed, data_heart_rate = display_activities_sum_false()
     sport_emoji = sport_emojis.get(sport.lower(), "")
     st.markdown(
@@ -171,11 +187,11 @@ def home_page():
     col_info1, col_info2, col_info3 = st.columns([3, 3, 2])
     with col_info1:
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🏁 Start time : {start_time_dt} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🕒 Start time : {start_time_dt} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>⌛ Finish time : {timestamp_dt} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🏁 End time : {timestamp_dt} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🕒 Time : {duration[0]}h{duration[1]}</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>⏳ Time : {duration[0]}h{duration[1]}</p>", unsafe_allow_html=True)
 
     with col_info2:
         st.markdown(
@@ -187,14 +203,14 @@ def home_page():
 
     with col_info3:
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️ Avg Heart Rate : {avg_heart_rate} bpm</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️ Average Heart Rate : {avg_heart_rate} bpm</p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>💪 Avg Power : {avg_power}</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️‍🔥 Max Heart Rate : {max_heart_rate} bpm</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🔥 Calories : {calories} kcal</p>", unsafe_allow_html=True)
 
     # Ici les colonnes pour display les graphiques
-    col_graph1, col_graph2, col_graph3 = st.columns([3, 0.5, 3])    
+    col_graph1, col_graph2, col_graph3 = st.columns([3, 0.5, 3])
 
     with col_graph1:
         # Calcul du temps timestamp
@@ -275,16 +291,16 @@ def second_page():
                 unsafe_allow_html=True)
 
     # Initialisation des variables pour que l'affichage démmarre à 0
-    calories, sport, sport_emoji, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = (
+    calories, sport, sport_emoji, distance, max_heart_rate, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = (
         0, "Waiting", "", 0, 0, 0, 0, 0, (0, 0), datetime.min, datetime.min)
     global model_name
     model_name = st.selectbox('Select a model to use', model_names)
 
     if st.button("EVALUATE 📈"):
         # Nouvelles valeurs des variables
-        calories, sport, distance, avg_power, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = predict_next_activity()
-        sport_emoji = sport_emojis.get(sport.lower(), "")        
-        
+        calories, sport, distance, max_heart_rate, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt = predict_next_activity()
+        sport_emoji = sport_emojis.get(sport.lower(), "")
+
     st.markdown(
         f"<p style='text-align: left;color:{color_text};'>Activity : {sport} {sport_emoji}</p>", unsafe_allow_html=True)
 
@@ -292,11 +308,11 @@ def second_page():
 
     with col_graph1:
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🏁 Start time : {start_time_dt.time()} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🕒 Start time : {start_time_dt.time()} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>⌛ Finish time : {timestamp_dt.time()} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🏁 End time : {timestamp_dt.time()} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🕒 Time : {duration[0]}h{duration[1]} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>⏳ Time : {duration[0]}h{duration[1]} </p>", unsafe_allow_html=True)
 
     with col_graph2:
         st.markdown(
@@ -308,9 +324,9 @@ def second_page():
 
     with col_info:
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️ Avg Heart Rate : {round(avg_heart_rate,0)}</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️ Average Heart Rate : {round(avg_heart_rate,0)} bpm</p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>💪 Avg Power: {avg_power}</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️‍🔥 Max Heart Rate: {round(max_heart_rate,0)} bpm</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🔥 Calories : {round(calories,2)} Kcal</p>", unsafe_allow_html=True)
 
@@ -326,7 +342,7 @@ def second_page():
 
     if st.button("EVALUATE 📊"):
         # Nouvelles valeurs des variables
-        calories_date, sport_date, distance_date, avg_power_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = predict_activity_date(
+        calories_date, sport_date, distance_date, max_heart_rate_date, avg_heart_rate_date, avg_speed_date, max_speed_date, duration_date, timestamp_dt_date, start_time_dt_date = predict_activity_date(
             date)
         sport_emoji_date = sport_emojis.get(sport_date.lower(), "")
     st.markdown(
@@ -336,11 +352,11 @@ def second_page():
 
     with col_graph1_bis:
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🏁 Start time : {start_time_dt_date.time()} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🕒 Start time : {start_time_dt_date.time()} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>⌛ Finish time : {timestamp_dt_date.time()} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🏁 Finish time : {timestamp_dt_date.time()} </p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🕒 Time : {duration_date[0]}h{duration_date[1]} </p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>⏳ Time : {duration_date[0]}h{duration_date[1]} </p>", unsafe_allow_html=True)
 
     with col_graph2_bis:
         st.markdown(
@@ -352,9 +368,9 @@ def second_page():
 
     with col_info_bis:
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️ Avg Heart Rate : {round(avg_heart_rate_date,0)}</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️ Average Heart Rate : {round(avg_heart_rate_date,0)} bpm</p>", unsafe_allow_html=True)
         st.markdown(
-            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>💪 Avg Power: {avg_power_date}</p>", unsafe_allow_html=True)
+            f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>❤️‍🔥 Max Heart Rate: {round(max_heart_rate_date,0)} bpm</p>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: left;color:{color_text};font-size:{size_text}px;'>🔥 Calories : {round(calories_date,2)} Kcal</p>", unsafe_allow_html=True)
 
@@ -471,7 +487,7 @@ def fifth_page():
         month = months.index(month_) + 1
     st.pyplot(plot_monthly_distance(year, month, data))
 
-    
+
     st.markdown(
         f"<h3 style='color: {text_color};'>Analysis of Last Activities for a Specific Sport</h3>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
