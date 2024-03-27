@@ -504,6 +504,10 @@ def load_preprocessors_and_model(model_path: str = MODEL_PATH,
 
 def get_all_models():
     models = list_all_models_from_gcs()
+    return get_all_models_from_dict(models)
+
+
+def get_all_models_from_dict(models):
     if len(models) == 0:
         preproc_garmin_data, preproc_activity, model = load_preprocessors_and_model()
 

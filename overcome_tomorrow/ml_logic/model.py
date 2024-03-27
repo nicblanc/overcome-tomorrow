@@ -105,21 +105,22 @@ def get_sliding_window_for_date(garmin_data, date=datetime.now()):
 
 def create_model(X_train, y_train):
     # rms = optimizers.RMSprop() #Si jamais on veut utiliser RMSprop()
-    adam = optimizers.Adam(learning_rate=0.001)
-    loss = losses.Huber(delta=1.0)
+    # adam = optimizers.Adam(learning_rate=0.001)
+    # loss = losses.Huber(delta=1.0)
 
     model = Sequential()
-    model.add(LSTM(units=100, return_sequences = True, input_shape = (X_train.shape[1], X_train.shape[2])))
+    model.add(LSTM(units=50, return_sequences=True,
+              input_shape=(X_train.shape[1], X_train.shape[2])))
     model.add(Dropout(0.2))
-    model.add(LSTM(units=100, return_sequences = True))
+    model.add(LSTM(units=50, return_sequences=True))
     model.add(Dropout(0.2))
-    model.add(LSTM(units=50, return_sequences = True))
+    model.add(LSTM(units=50, return_sequences=True))
     model.add(Dropout(0.2))
-    model.add(LSTM(units=50, return_sequences = True))
+    model.add(LSTM(units=50))  # , return_sequences=True))
     model.add(Dropout(0.2))
-    model.add(LSTM(units=25))
+    # model.add(LSTM(units=25))
     model.add(Dense(units=y_train.shape[1]))
-    model.compile(loss=loss, optimizer=adam, metrics=['accuracy'])
+    model.compile(loss="mse", optimizer="adam", metrics=['accuracy'])
     return model
 
 
@@ -129,7 +130,13 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
                                 preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
                                 preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
     garmin_data, activities = get_data()
-    return create_train_and_save_model_for_data(garmin_data=garmin_data, activities=activities)
+    return create_train_and_save_model_for_data(garmin_data=garmin_data,
+                                                activities=activities,
+                                                model_path=model_path,
+                                                model_filename=model_filename,
+                                                preprocessors_path=preprocessors_path,
+                                                preproc_garmin_data_filename=preproc_garmin_data_filename,
+                                                preproc_activity_filename=preproc_activity_filename)
 
 
 def create_train_and_save_model_for_data(garmin_data,
@@ -156,8 +163,11 @@ def create_train_and_save_model_for_data(garmin_data,
     epochs = 50
     model = create_model(X_train, y_train)
     # TODO train test split + validation split
-    es = EarlyStopping(patience=10,restore_best_weights=True)
-    model.fit(X_train, y_train, batch_size = 32, epochs = epochs, callbacks = es, verbose = 1, validation_split =0.1)
+    # es = EarlyStopping(patience=10, restore_best_weights=True)
+    model.fit(X_train, y_train, batch_size=32,
+              epochs=epochs, verbose=1,
+              #   validation_split=0.1
+              )
     model.summary()
 
     model_name = pathlib.PurePath(model_filename).stem

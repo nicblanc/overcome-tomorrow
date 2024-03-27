@@ -85,9 +85,24 @@ def predict_next_activities(selected_models):
         f'{BACKEND_URL}/activities/next', params={"models_name": selected_models}).json()
     res = [json.loads(next_activity) for next_activity in next_activities]
     df = pd.DataFrame.from_dict(res)
-    df["total_distance"] = round(df["total_distance"] / 1000, 2)
+
     df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
     df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
+
+    # Hack if mixing models with distance or not
+    if "total_distance" in df:
+        df["total_distance"].fillna(
+            (df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+                dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3.6,
+            inplace=True
+        )
+        df["total_distance"] = round(df["total_distance"] / 1000, 2)
+    else:
+        df["total_distance"] = round((df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+            dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3600, 2)
+
+    # Hack if mixing models with primary benefit as a category or a numerical value
+    df["188"] = df["188"].astype("str")
     return df
 
 
@@ -101,9 +116,23 @@ def compare_activity_date(date):
     res = requests.get(
         f'{BACKEND_URL}/activities/date/compare', params={"model_name": model_name, "date": date}).json()
     df = pd.read_json(StringIO(res))
-    df["total_distance"] = round(df["total_distance"] / 1000, 2)
+
     df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
     df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
+
+    # Hack if mixing models with distance or not
+    if "total_distance" in df:
+        df["total_distance"].fillna(
+            (df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+                dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3.6,
+            inplace=True
+        )
+        df["total_distance"] = round(df["total_distance"] / 1000, 2)
+    else:
+        df["total_distance"] = round((df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+            dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3600, 2)
+    # Hack if mixing models with primary benefit as a category or a numerical value
+    df["188"] = df["188"].astype("str")
     return df
 
 
@@ -385,8 +414,6 @@ def fourth_page():
 
     if st.button("PREDICT POSSIBLE ACTIVITES 📊"):
         df = predict_next_activities(",".join(selected_model))
-        # Hack if mixing models with primary benefit as a category or a numerical value
-        df["188"] = df["188"].astype("str")
         st.write(df)
 
 
