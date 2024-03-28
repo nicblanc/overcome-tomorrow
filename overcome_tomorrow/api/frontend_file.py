@@ -33,6 +33,24 @@ sport_emojis = {
     "training": "🏋️‍♂️"
     # Add more mappings as needed
 }
+
+dataframe_columns = {
+    "sport": "Sport",
+    "Primary_benefit": "Primary benefit",
+    "avg_heart_rate": "Average Heart Rate",
+    "max_heart_rate": "Max Heart Rate",
+    "enhanced_avg_speed": "Average Speed",
+    "enhanced_max_speed": "Max Speed",
+    "total_distance": "Distance",
+    "start_time": "Start time",
+    "timestamp": "End time",
+    "duration": "Duration",
+    "total_calories": "Calories"
+}
+
+dataframe_columns_with_model_name = dataframe_columns.copy()
+dataframe_columns_with_model_name["model_name"] = "Model name"
+
 primary_benefit_label = {
     0: "None",
     1: "Recovery",
@@ -159,103 +177,122 @@ def extract_activity_from_json(json_response):
     minutes = (diff.seconds % 3600) // 60
     duration = (hours, minutes)
 
-    distance = round(json_response.get('total_distance',
-                     avg_speed * diff.seconds / 3.6) / 1000, 2)
+    distance = round(avg_speed * diff.seconds / 3600, 2)
+    # distance = round(json_response.get('total_distance',
+    #                  avg_speed * diff.seconds / 3.6) / 1000, 2)
     # st.write(f'test : {response}')
     return calories, sport, distance, max_heart_rate, avg_heart_rate, avg_speed, max_speed, duration, timestamp_dt, start_time_dt
 
 
 def display_activities_sum_true():
-    response = requests.get(
-        f'{BACKEND_URL}/activities?activity_datetime=2024-03-04&summarized=true').json()[0]
-    return extract_activity_from_json(response)
+    with st.spinner("Getting activity..."):
+        response = requests.get(
+            f'{BACKEND_URL}/activities?activity_datetime=2024-03-04&summarized=true').json()[0]
+        return extract_activity_from_json(response)
 
 
 def predict_next_activity():
-    next_activity = json.loads(requests.get(
-        f'{BACKEND_URL}/activities/next', params={"models_name": model_name}).json()[0])
+    with st.spinner("Predicting next activity..."):
+        next_activity = json.loads(requests.get(
+            f'{BACKEND_URL}/activities/next', params={"models_name": model_name}).json()[0])
 
-    return extract_activity_from_json(next_activity)
+        return extract_activity_from_json(next_activity)
 
 
 def predict_next_activities(selected_models):
-    next_activities = requests.get(
-        f'{BACKEND_URL}/activities/next', params={"models_name": selected_models}).json()
-    res = [json.loads(next_activity) for next_activity in next_activities]
-    df = pd.DataFrame.from_dict(res)
+    with st.spinner("Predicting activities..."):
+        next_activities = requests.get(
+            f'{BACKEND_URL}/activities/next', params={"models_name": selected_models}).json()
+        res = [json.loads(next_activity) for next_activity in next_activities]
+        df = pd.DataFrame.from_dict(res)
 
-    df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
-    df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
+        df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
+        df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
 
-    # Hack if mixing models with distance or not
-    if "total_distance" in df:
-        df["total_distance"].fillna(
-            (df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
-                dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3.6,
-            inplace=True
-        )
-        df["total_distance"] = round(df["total_distance"] / 1000, 2)
-    else:
+        # Hack if mixing models with distance or not
+        # if "total_distance" in df:
+        #     df["total_distance"].fillna(
+        #         (df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+        #             dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3.6,
+        #         inplace=True
+        #     )
+        #     df["total_distance"] = round(df["total_distance"] / 1000, 2)
+        # else:
+        #     df["total_distance"] = round((df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+        #         dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3600, 2)
+
+        df["duration"] = (df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
+            dateutil.parser.parse)).apply(lambda d: f"{d.seconds // 3600}h{(d.seconds % 3600) // 60}")
         df["total_distance"] = round((df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
             dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3600, 2)
 
-    # Hack if mixing models with primary benefit as a category or a numerical value
+        # Hack if mixing models with primary benefit as a category or a numerical value
 
-    tmp = pd.to_numeric(df["188"], errors='coerce').round(0)
-    mask = ~(tmp.isnull())
-    df["188"][mask] = tmp[mask].astype("int").replace(primary_benefit_label)
-    df["188"] = df["188"].astype("str")
+        tmp = pd.to_numeric(df["188"], errors='coerce').round(0)
+        mask = ~(tmp.isnull())
+        df["188"][mask] = tmp[mask].astype(
+            "int").replace(primary_benefit_label)
+        df["188"] = df["188"].astype("str")
 
-    df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss', '206': 'Ending_potential_stamina',
-              '207': 'Min_stamina', '205': 'Beginning_potential_stamina'}, inplace=True)
-    return df
+        df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss', '206': 'Ending_potential_stamina',
+                           '207': 'Min_stamina', '205': 'Beginning_potential_stamina'}, inplace=True)
+        return df[dataframe_columns_with_model_name.keys()].rename(columns=dataframe_columns_with_model_name)
 
 
 def predict_activity_date(date):
-    date_activity = json.loads(requests.get(
-        f'{BACKEND_URL}/activities/date?date={date}', params={"model_name": model_name}).json())
-    return extract_activity_from_json(date_activity)
+    with st.spinner(f"Predicting activity for {date}..."):
+        date_activity = json.loads(requests.get(
+            f'{BACKEND_URL}/activities/date?date={date}', params={"model_name": model_name}).json())
+        return extract_activity_from_json(date_activity)
 
 
 def compare_activity_date(date):
-    res = requests.get(
-        f'{BACKEND_URL}/activities/date/compare', params={"model_name": model_name, "date": date}).json()
-    df = pd.read_json(StringIO(res))
+    with st.spinner(f"Predicting activity for {date}..."):
+        res = requests.get(
+            f'{BACKEND_URL}/activities/date/compare', params={"model_name": model_name, "date": date}).json()
+        df = pd.read_json(StringIO(res))
 
-    df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
-    df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
+        df["enhanced_avg_speed"] = round(df["enhanced_avg_speed"] * 3.6, 2)
+        df["enhanced_max_speed"] = round(df["enhanced_max_speed"] * 3.6, 2)
 
-    # Hack if mixing models with distance or not
-    if "total_distance" in df:
-        df["total_distance"].fillna(
-            (df["timestamp"].apply(dateutil.parser.parse) - df["start_time"].apply(
-                dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3.6,
-            inplace=True
-        )
-        df["total_distance"] = round(df["total_distance"] / 1000, 2)
-    else:
+        # Hack if mixing models with distance or not
+        # if "total_distance" in df:
+        #     df["total_distance"].fillna(
+        #         (df["timestamp"].astype("str").apply(dateutil.parser.parse) - df["start_time"].astype("str").apply(
+        #             dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3.6,
+        #         inplace=True
+        #     )
+        #     df["total_distance"] = round(df["total_distance"] / 1000, 2)
+        # else:
+        #     df["total_distance"] = round((df["timestamp"].astype("str").apply(dateutil.parser.parse) - df["start_time"].astype("str").apply(
+        #         dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3600, 2)
+        df["duration"] = (df["timestamp"].astype("str").apply(dateutil.parser.parse) - df["start_time"].astype("str").apply(
+            dateutil.parser.parse)).apply(lambda d: f"{d.seconds // 3600}h{(d.seconds % 3600) // 60}")
         df["total_distance"] = round((df["timestamp"].astype("str").apply(dateutil.parser.parse) - df["start_time"].astype("str").apply(
             dateutil.parser.parse)).apply(lambda d: d.seconds) * df["enhanced_avg_speed"] / 3600, 2)
 
-    # Hack if mixing models with primary benefit as a category or a numerical value
-    tmp = pd.to_numeric(df["188"], errors='coerce').round(0)
-    mask = ~(tmp.isnull())
-    df["188"][mask] = tmp[mask].astype("int").replace(primary_benefit_label)
-    df["188"] = df["188"].astype("str")
+        # Hack if mixing models with primary benefit as a category or a numerical value
+        tmp = pd.to_numeric(df["188"], errors='coerce').round(0)
+        mask = ~(tmp.isnull())
+        df["188"][mask] = tmp[mask].astype(
+            "int").replace(primary_benefit_label)
+        df["188"] = df["188"].astype("str")
 
-    df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss', '206': 'Ending_potential_stamina',
-              '207': 'Min_stamina', '205': 'Beginning_potential_stamina'}, inplace=True)
-    return df
+        df.rename(columns={'188': 'Primary_benefit', '178': 'Sweat_loss', '206': 'Ending_potential_stamina',
+                           '207': 'Min_stamina', '205': 'Beginning_potential_stamina'}, inplace=True)
+
+        return df[dataframe_columns.keys()].rename(columns=dataframe_columns)
 
 
 def display_activities_sum_false():
-    response_false = json.loads(requests.get(
-        f'{BACKEND_URL}/activities?activity_datetime=2024-03-04&summarized=false').json()[0])
-    data_power = response_false['power']
-    data_stamina = response_false['137']
-    data_speed = response_false['enhanced_speed']
-    data_heart_rate = response_false['heart_rate']
-    return data_power, data_stamina, data_speed, data_heart_rate
+    with st.spinner("Getting activity details..."):
+        response_false = json.loads(requests.get(
+            f'{BACKEND_URL}/activities?activity_datetime=2024-03-04&summarized=false').json()[0])
+        data_power = response_false['power']
+        data_stamina = response_false['137']
+        data_speed = response_false['enhanced_speed']
+        data_heart_rate = response_false['heart_rate']
+        return data_power, data_stamina, data_speed, data_heart_rate
 
 # HomePage - Overcome Tomorrow
 
