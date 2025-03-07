@@ -194,8 +194,7 @@ def create_preproc_garmin_data(data):
     # pipeline categorial features
     pipe_categorical = Pipeline([
         ("simple_imputer", SimpleImputer(strategy="most_frequent")),
-        ("one_hot", OneHotEncoder(sparse_output=False,
-         handle_unknown="ignore", drop="if_binary"))
+        ("one_hot", OneHotEncoder(sparse_output=False,handle_unknown="ignore", drop="if_binary"))
     ])
 
     # full preprocessing
