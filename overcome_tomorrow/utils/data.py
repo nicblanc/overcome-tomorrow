@@ -416,18 +416,24 @@ def get_model_and_preprocessors_blobs_from_gcs(model_filename: str = MODEL_NAME,
         f"{model_name}/{preproc_activity_filename}")
     model_blob = bucket.blob(f"{model_name}/{model_filename}")
 
-    if not preproc_garmin_data_blob.exists():
-        print(
-            f"\n❌ Blob {model_name}/{preproc_garmin_data_filename} not found")
-        return None, None, None
-    if not preproc_activity_blob.exists():
-        print(f"\n❌ Blob {model_name}/{preproc_activity_filename} not found")
-        return None, None, None
-    if not model_blob.exists():
-        print(f"\n❌ Blob {model_name}/{model_filename} not found")
-        return None, None, None
+    try:
+        if not preproc_garmin_data_blob.exists():
+            print(
+                f"\n❌ Blob {model_name}/{preproc_garmin_data_filename} not found")
+            return None, None, None
+        if not preproc_activity_blob.exists():
+            print(
+                f"\n❌ Blob {model_name}/{preproc_activity_filename} not found")
+            return None, None, None
+        if not model_blob.exists():
+            print(f"\n❌ Blob {model_name}/{model_filename} not found")
+            return None, None, None
 
-    return model_blob, preproc_garmin_data_blob, preproc_activity_blob
+        return model_blob, preproc_garmin_data_blob, preproc_activity_blob
+    except Exception as e:
+        print(
+            f"\n⚠️  Cannot retrieve Blob from Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
+        return None, None, None
 
 
 def get_last_modified_dates_for_model_and_preprocessors_from_gcs(model_filename: str = MODEL_NAME,
