@@ -143,7 +143,7 @@ def create_preproc_garmin_data(data):
     # drop cols with 80% of nan
     cols_with_80_percent_of_nan = []
     for col in data.columns:
-        if data[col].isna().sum() >= ((data.shape[0] * 60) / 100):
+        if data[col].isna().sum() >= ((data.shape[0] * 80) / 100):
             cols_with_80_percent_of_nan.append(col)
     data = data.drop(columns=cols_with_80_percent_of_nan)
 
@@ -151,7 +151,8 @@ def create_preproc_garmin_data(data):
     cycle_data = data.select_dtypes(include=np.datetime64).dropna()
 
     # get all cols for each type
-    cycle_features = data.select_dtypes(include=np.datetime64).columns
+    cycle_features = data.select_dtypes(
+        include=data["start_sleep"].dtypes).columns
     numerical_features = data.select_dtypes(include=np.number).columns
 
     # delete feature useless
@@ -194,7 +195,8 @@ def create_preproc_garmin_data(data):
     # pipeline categorial features
     pipe_categorical = Pipeline([
         ("simple_imputer", SimpleImputer(strategy="most_frequent")),
-        ("one_hot", OneHotEncoder(sparse_output=False,handle_unknown="ignore", drop="if_binary"))
+        ("one_hot", OneHotEncoder(sparse_output=False,
+         handle_unknown="ignore", drop="if_binary"))
     ])
 
     # full preprocessing

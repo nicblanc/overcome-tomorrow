@@ -10,7 +10,7 @@ from pickle import dump
 from datetime import datetime, timedelta
 
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, LSTM, Dropout, Activation
+from tensorflow.keras.layers import Dense, LSTM, Dropout, Activation, Flatten, TimeDistributed, BatchNormalization
 from tensorflow.keras import Model, Sequential, layers, regularizers, optimizers, losses
 from tensorflow.keras.callbacks import EarlyStopping
 
@@ -103,7 +103,88 @@ def get_sliding_window_for_date(garmin_data, date=datetime.now()):
     return window_df
 
 
-def create_model(X_train, y_train):
+def create_model_A(X_train, y_train):
+    model = Sequential()
+    model.add(LSTM(128, input_shape=(
+        X_train.shape[1], X_train.shape[2]), return_sequences=True))
+    model.add(LSTM(128, return_sequences=True))
+    model.add(Dropout(rate=0.5))
+    model.add(Flatten())
+    model.add(Dense(1024, activation="relu"))
+    model.add(Dropout(rate=0.5))
+    model.add(Dense(units=y_train.shape[1]))
+    adam = optimizers.Adam(learning_rate=0.001)
+    model.compile(loss="mse", optimizer=adam, metrics=["accuracy"])
+    return model
+
+
+def create_model_B(X_train, y_train):
+    model = Sequential()
+    model.add(LSTM(32, input_shape=(
+        X_train.shape[1], X_train.shape[2]), return_sequences=True))
+    model.add(LSTM(16, return_sequences=True))
+    model.add(LSTM(8, return_sequences=True))
+    model.add(Dropout(rate=0.5))
+    model.add(Flatten())
+    model.add(Dense(512, activation="relu"))
+    model.add(Dropout(rate=0.5))
+    model.add(Dense(64, activation="relu"))
+    model.add(Dense(units=y_train.shape[1]))
+    adam = optimizers.Adam(learning_rate=0.001)
+    model.compile(loss="mse", optimizer=adam, metrics=["accuracy"])
+    return model
+
+
+def create_model_C(X_train, y_train):
+    model = Sequential()
+    model.add(LSTM(32, input_shape=(
+        X_train.shape[1], X_train.shape[2]), return_sequences=True))
+    model.add(LSTM(32, return_sequences=True))
+    model.add(BatchNormalization())
+    model.add(Flatten())
+    model.add(Dense(512, activation="relu"))
+    model.add(BatchNormalization())
+    model.add(Dense(64, activation="relu"))
+    model.add(Dense(units=y_train.shape[1]))
+    adam = optimizers.Adam(learning_rate=0.001)
+    model.compile(loss="mse", optimizer=adam, metrics=["accuracy"])
+    return model
+
+
+def create_model_D(X_train, y_train):
+    model = Sequential()
+    model.add(LSTM(units=64, input_shape=(
+        X_train.shape[1], X_train.shape[2]), return_sequences=True))
+    model.add(LSTM(units=64, return_sequences=True))
+    model.add(Dropout(rate=0.5))
+    model.add(TimeDistributed(Dense(10)))
+    model.add(Flatten())
+    model.add(Dense(512, activation="relu"))
+    model.add(Dropout(rate=0.5))
+    model.add(Dense(64, activation="relu"))
+    model.add(Dense(units=y_train.shape[1]))
+    adam = optimizers.Adam(learning_rate=0.001)
+    model.compile(loss="mse", optimizer=adam, metrics=["accuracy"])
+    return model
+
+
+def create_model_E(X_train, y_train):
+    model = Sequential()
+    model.add(LSTM(units=32, input_shape=(
+        X_train.shape[1], X_train.shape[2]), return_sequences=True))
+    model.add(LSTM(units=32, return_sequences=True))
+    model.add(Dropout(rate=0.5))
+    model.add(Flatten())
+    model.add(Dense(512, activation="relu"))
+    model.add(Dropout(rate=0.5))
+    model.add(Dense(64, activation="relu"))
+    model.add(Dense(units=y_train.shape[1]))
+    adam = optimizers.Adam(learning_rate=0.001)
+    model.compile(loss="mse", optimizer=adam, metrics=["accuracy"])
+    return model
+
+
+def create_model_og(X_train, y_train):
     # rms = optimizers.RMSprop() #Si jamais on veut utiliser RMSprop()
     # adam = optimizers.Adam(learning_rate=0.001)
     # loss = losses.Huber(delta=1.0)
@@ -124,6 +205,10 @@ def create_model(X_train, y_train):
     return model
 
 
+def create_model(X_train, y_train):
+    return create_model_og(X_train=X_train, y_train=y_train)
+
+
 def create_train_and_save_model(model_path: str = MODEL_PATH,
                                 model_filename: str = MODEL_NAME,
                                 preprocessors_path: str = MODEL_PATH,
@@ -139,29 +224,19 @@ def create_train_and_save_model(model_path: str = MODEL_PATH,
                                                 preproc_activity_filename=preproc_activity_filename)
 
 
-def create_train_and_save_model_for_data(garmin_data,
-                                         activities,
-                                         model_path: str = MODEL_PATH,
-                                         model_filename: str = MODEL_NAME,
-                                         preprocessors_path: str = MODEL_PATH,
-                                         preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
-                                         preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
-
-    print(f"\n👷‍♂️ Create and train model {model_filename} 👷‍♀️")
-
-    # Fit Preprocessors
-    preproc_garmin_data = create_preproc_garmin_data(garmin_data)
-    preproc_activity = create_preproc_activity(activities)
-    preproc_garmin_data.fit(garmin_data)
-    preproc_activity.fit(activities)
-
-    # Create sliding windows
-    X_train, y_train = create_sliding_windows_dataset(
-        garmin_data, activities, preproc_garmin_data, preproc_activity)
-
+def create_train_and_save_model_for_preprocessors_windows_and_model(preproc_garmin_data,
+                                                                    preproc_activity,
+                                                                    X_train,
+                                                                    y_train,
+                                                                    model_function,
+                                                                    model_path: str = MODEL_PATH,
+                                                                    model_filename: str = MODEL_NAME,
+                                                                    preprocessors_path: str = MODEL_PATH,
+                                                                    preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                                                    preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
     # Create model
     epochs = 50
-    model = create_model(X_train, y_train)
+    model = model_function(X_train, y_train)
     # TODO train test split + validation split
     # es = EarlyStopping(patience=10, restore_best_weights=True)
     model.fit(X_train, y_train, batch_size=32,
@@ -195,13 +270,47 @@ def create_train_and_save_model_for_data(garmin_data,
             f"\n⚠️ Cannot upload model/preprocessors to Google Cloud Storage ⚠️\nFollowing error occured:\n{e}")
 
 
-def create_train_and_save_sports_sub_model_for_data(garmin_data,
-                                                    activities,
-                                                    model_path: str = MODEL_PATH,
-                                                    model_filename: str = MODEL_NAME,
-                                                    preprocessors_path: str = MODEL_PATH,
-                                                    preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
-                                                    preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+def create_train_and_save_model_for_data_and_model(garmin_data,
+                                                   activities,
+                                                   model_function,
+                                                   model_path: str = MODEL_PATH,
+                                                   model_filename: str = MODEL_NAME,
+                                                   preprocessors_path: str = MODEL_PATH,
+                                                   preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                                   preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+
+    print(f"\n👷‍♂️ Create and train model {model_filename} 👷‍♀️")
+
+    # Fit Preprocessors
+    preproc_garmin_data = create_preproc_garmin_data(garmin_data)
+    preproc_activity = create_preproc_activity(activities)
+    preproc_garmin_data.fit(garmin_data)
+    preproc_activity.fit(activities)
+
+    # Create sliding windows
+    X_train, y_train = create_sliding_windows_dataset(
+        garmin_data, activities, preproc_garmin_data, preproc_activity)
+    return create_train_and_save_model_for_preprocessors_windows_and_model(preproc_garmin_data, preproc_activity, X_train, y_train, model_function, model_path, model_filename, preprocessors_path, preproc_garmin_data_filename, preproc_activity_filename)
+
+
+def create_train_and_save_model_for_data(garmin_data,
+                                         activities,
+                                         model_path: str = MODEL_PATH,
+                                         model_filename: str = MODEL_NAME,
+                                         preprocessors_path: str = MODEL_PATH,
+                                         preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                         preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+    return create_train_and_save_model_for_data_and_model(garmin_data, activities, create_model, model_path, model_filename, preprocessors_path, preproc_garmin_data_filename, preproc_activity_filename)
+
+
+def create_train_and_save_sports_sub_model_for_data_and_model(garmin_data,
+                                                              activities,
+                                                              model_function,
+                                                              model_path: str = MODEL_PATH,
+                                                              model_filename: str = MODEL_NAME,
+                                                              preprocessors_path: str = MODEL_PATH,
+                                                              preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                                              preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
     filtered_activities_dict = {sport: activities[activities["sport"].isin(
         [sport])].reset_index(drop=True) for sport in SPORTS_FILTER}
     for sport, sport_activities in filtered_activities_dict.items():
@@ -209,14 +318,25 @@ def create_train_and_save_sports_sub_model_for_data(garmin_data,
         # Small hack for swimming/walking to avoid preprocessor to throw an error.
         if sport in ["swimming", "walking"]:
             sport_activities["205"] = 100
-        create_train_and_save_model_for_data(garmin_data=garmin_data, activities=sport_activities, model_path=model_path, model_filename=sub_model_filename,
-                                             preprocessors_path=preprocessors_path, preproc_garmin_data_filename=preproc_garmin_data_filename, preproc_activity_filename=preproc_activity_filename)
+        create_train_and_save_model_for_data_and_model(garmin_data=garmin_data, activities=sport_activities, model_function=model_function, model_path=model_path, model_filename=sub_model_filename,
+                                                       preprocessors_path=preprocessors_path, preproc_garmin_data_filename=preproc_garmin_data_filename, preproc_activity_filename=preproc_activity_filename)
+
+
+def create_train_and_save_sports_sub_model_for_data(garmin_data,
+                                                    activities,
+                                                    model_path: str = MODEL_PATH,
+                                                    model_filename: str = MODEL_NAME,
+                                                    preprocessors_path: str = MODEL_PATH,
+                                                    preproc_garmin_data_filename: str = GARMIN_DATA_PREPROC_NAME,
+                                                    preproc_activity_filename: str = ACTIVITY_PREPROC_NAME):
+    create_train_and_save_sports_sub_model_for_data_and_model(
+        garmin_data, activities, create_model, model_path, model_filename, preprocessors_path, preproc_garmin_data_filename, preproc_activity_filename)
 
 
 def predict_for_date(garmin_data, preproc_garmin_data, preproc_activity, model, date=datetime.now()):
     window_df = get_sliding_window_for_date(garmin_data, date)
-    input = np.array([preproc_garmin_data.transform(window_df)])
-    prediction = model.predict(input)
+    input_array = np.array([preproc_garmin_data.transform(window_df)])
+    prediction = model.predict(input_array)
     return preproc_activity.inverse_transform(prediction)
 
 
@@ -237,9 +357,9 @@ def predict_vs_real_for_date(garmin_data, activities, preproc_garmin_data, prepr
 
 
 def predict_for_last_n_days(garmin_data, preproc_garmin_data, preproc_activity, model, last_days=30):
-    input = get_sliding_windows_for_n_last_days(
+    sliding_windows = get_sliding_windows_for_n_last_days(
         garmin_data, preproc_garmin_data, last_days)
-    predictions = model.predict(input)
+    predictions = model.predict(sliding_windows)
     return preproc_activity.inverse_transform(predictions)
 
 
